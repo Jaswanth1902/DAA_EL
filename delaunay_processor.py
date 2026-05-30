@@ -80,28 +80,41 @@ class DelaunayProcessor:
         # 6. Compute Delaunay Triangulation
         tri = Delaunay(self.points)
         
-        # Pre-allocate mask to avoid overhead of allocating memory for every triangle
-        mask = np.zeros((self.h, self.w), dtype=np.uint8)
-        
         self.triangles = []
         for simplex in tri.simplices:
             pts = self.points[simplex].astype(np.int32)
             
-            # Clear previous mask
-            mask.fill(0)
-            cv2.drawContours(mask, [pts], 0, 255, -1)
+            # Find bounding box
+            x_min, y_min = np.min(pts, axis=0)
+            x_max, y_max = np.max(pts, axis=0)
             
-            # Compute average color c
-            mean_color = cv2.mean(self.image, mask=mask)[:3]
+            # Clamp boundaries
+            x_min = max(0, int(x_min))
+            y_min = max(0, int(y_min))
+            x_max = min(self.w - 1, int(x_max))
+            y_max = min(self.h - 1, int(y_max))
             
-            # Fallback for extremely small/collinear triangles that cover 0 pixel centers
-            if sum(mean_color) == 0:
-                cx = int(np.mean(pts[:, 0]))
-                cy = int(np.mean(pts[:, 1]))
-                cx = min(max(0, cx), self.w - 1)
-                cy = min(max(0, cy), self.h - 1)
+            w_roi = x_max - x_min + 1
+            h_roi = y_max - y_min + 1
+            
+            if w_roi <= 0 or h_roi <= 0:
+                cx = min(max(0, int(np.mean(pts[:, 0]))), self.w - 1)
+                cy = min(max(0, int(np.mean(pts[:, 1]))), self.h - 1)
                 mean_color = self.image[cy, cx].tolist()
+            else:
+                # Local ROI mask: incredibly fast to allocate for small triangle bounding boxes
+                roi_mask = np.zeros((h_roi, w_roi), dtype=np.uint8)
+                cv2.drawContours(roi_mask, [pts - [x_min, y_min]], 0, 255, -1)
                 
+                roi_img = self.image[y_min:y_max+1, x_min:x_max+1]
+                mean_color = cv2.mean(roi_img, mask=roi_mask)[:3]
+                
+                # Centroid fallback if the triangle covers 0 pixel centers
+                if sum(mean_color) == 0:
+                    cx = min(max(0, int(np.mean(pts[:, 0]))), self.w - 1)
+                    cy = min(max(0, int(np.mean(pts[:, 1]))), self.h - 1)
+                    mean_color = self.image[cy, cx].tolist()
+                    
             self.triangles.append((pts, mean_color))
 
     def render(self):

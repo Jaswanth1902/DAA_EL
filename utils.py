@@ -29,6 +29,64 @@ def save_triangles(triangles, filename):
             color_str = f"{int(color[2])},{int(color[1])},{int(color[0])}"
             f.write(f"{coords},{color_str}\n")
 
+def save_svg(triangles, width, height, filename):
+    """
+    Save triangle data to a standard SVG file.
+    To prevent hairlines between adjacent triangles, we add a stroke matching the fill.
+    """
+    svg_lines = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}">'
+    ]
+    for pts, color in triangles:
+        r, g, b = int(color[2]), int(color[1]), int(color[0])
+        pts_str = " ".join([f"{p[0]},{p[1]}" for p in pts])
+        svg_lines.append(f'  <polygon points="{pts_str}" fill="rgb({r},{g},{b})" stroke="rgb({r},{g},{b})" stroke-width="0.5" />')
+    svg_lines.append('</svg>')
+    with open(filename, 'w') as f:
+        f.write("\n".join(svg_lines))
+
+def save_json(triangles, width, height, filename):
+    """
+    Save Delaunay triangulation data to a highly compressed WebGL-friendly JSON file.
+    Format:
+    {
+      "width": width,
+      "height": height,
+      "vertices": [x0, y0, x1, y1, ...],
+      "triangles": [v0_idx, v1_idx, v2_idx, ...],
+      "colors": [r0, g0, b0, ...]
+    }
+    """
+    import json
+    unique_points = []
+    point_to_idx = {}
+    indices = []
+    colors = []
+    
+    for pts, color in triangles:
+        tri_indices = []
+        for p in pts:
+            pt_tuple = (float(p[0]), float(p[1]))
+            if pt_tuple not in point_to_idx:
+                point_to_idx[pt_tuple] = len(unique_points) // 2
+                unique_points.append(pt_tuple[0])
+                unique_points.append(pt_tuple[1])
+            tri_indices.append(point_to_idx[pt_tuple])
+        
+        indices.extend(tri_indices)
+        colors.extend([int(color[2]), int(color[1]), int(color[0])]) # Convert BGR to RGB
+        
+    data = {
+        "width": int(width),
+        "height": int(height),
+        "vertices": unique_points,
+        "triangles": indices,
+        "colors": colors
+    }
+    
+    with open(filename, 'w') as f:
+        json.dump(data, f, separators=(',', ':'))
+
 def get_simplification_rate(original_shape, triangle_count):
     """Calculate the simplification rate/compression ratio."""
     # Original size in pixels * 3 (channels)
