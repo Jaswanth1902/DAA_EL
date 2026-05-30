@@ -486,6 +486,14 @@
                 <h3 class="section-title">Rendering Modes</h3>
 
                 <div class="control-group" style="gap: 0.75rem;">
+                    <div class="toggle-row" onclick="toggleOption('useWebGL')">
+                        <span style="font-size: 0.9rem; font-weight: bold; color: var(--cyberpunk-primary);">WebGL GPU Rendering</span>
+                        <label class="switch">
+                            <input type="checkbox" id="useWebGLToggle">
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+
                     <div class="toggle-row" onclick="toggleOption('fillEnabled')">
                         <span style="font-size: 0.9rem;">Fill Triangles</span>
                         <label class="switch">
@@ -549,6 +557,7 @@
             
             <div class="canvas-container" id="canvasContainer">
                 <canvas id="renderCanvas"></canvas>
+                <canvas id="webglCanvas" style="display: none; position: absolute; top: 0; left: 0; pointer-events: none;"></canvas>
             </div>
 
             <!-- Performance Panel -->
@@ -569,6 +578,7 @@
             fillEnabled: true,
             wireframeEnabled: false,
             editMode: false,
+            useWebGL: false,
             morphFactor: 1.0,
             blendOpacity: 1.0,
             preset: 'minimalist',
@@ -588,6 +598,75 @@
 
         const canvas = document.getElementById('renderCanvas');
         const ctx = canvas.getContext('2d');
+        const webglCanvas = document.getElementById('webglCanvas');
+        const gl = webglCanvas.getContext('webgl');
+
+        let webglProgram = null;
+        let positionBuffer = null;
+        let colorBuffer = null;
+
+        function initWebGL() {
+            if (!gl) {
+                console.warn("WebGL not supported");
+                return;
+            }
+
+            const vsSource = `
+                attribute vec2 aVertexPosition;
+                attribute vec3 aVertexColor;
+                uniform vec2 uResolution;
+                varying vec3 vColor;
+                void main() {
+                    // convert the position from pixels to 0.0 to 1.0
+                    vec2 zeroToOne = aVertexPosition / uResolution;
+                    // convert from 0->1 to 0->2
+                    vec2 zeroToTwo = zeroToOne * 2.0;
+                    // convert from 0->2 to -1->+1 (clip space)
+                    vec2 clipSpace = zeroToTwo - 1.0;
+                    gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
+                    vColor = aVertexColor;
+                }
+            `;
+
+            const fsSource = `
+                precision mediump float;
+                varying vec3 vColor;
+                uniform float uAlpha;
+                void main() {
+                    gl_FragColor = vec4(vColor, uAlpha);
+                }
+            `;
+
+            function createShader(gl, type, source) {
+                const shader = gl.createShader(type);
+                gl.shaderSource(shader, source);
+                gl.compileShader(shader);
+                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                    console.error('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(shader));
+                    gl.deleteShader(shader);
+                    return null;
+                }
+                return shader;
+            }
+
+            const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
+            const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+
+            webglProgram = gl.createProgram();
+            gl.attachShader(webglProgram, vertexShader);
+            gl.attachShader(webglProgram, fragmentShader);
+            gl.linkProgram(webglProgram);
+
+            if (!gl.getProgramParameter(webglProgram, gl.LINK_STATUS)) {
+                console.error('Unable to initialize the shader program: ' + gl.getProgramInfoLog(webglProgram));
+                return;
+            }
+
+            positionBuffer = gl.createBuffer();
+            colorBuffer = gl.createBuffer();
+        }
+
+        initWebGL();
 
         // Apply a style preset on startup
         window.addEventListener('DOMContentLoaded', () => {
@@ -709,6 +788,17 @@
             // Sync checks
             if (name === 'fillEnabled') document.getElementById('fillEnabledToggle').checked = state.fillEnabled;
             if (name === 'wireframeEnabled') document.getElementById('wireframeEnabledToggle').checked = state.wireframeEnabled;
+            if (name === 'useWebGL') {
+                document.getElementById('useWebGLToggle').checked = state.useWebGL;
+                webglCanvas.style.display = state.useWebGL ? 'block' : 'none';
+                if (!state.useWebGL) {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                } else if (gl) {
+                    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+                    gl.clearColor(0, 0, 0, 0);
+                    gl.clear(gl.COLOR_BUFFER_BIT);
+                }
+            }
             if (name === 'editMode') {
                 document.getElementById('editModeToggle').checked = state.editMode;
                 document.getElementById('editBadge').style.display = state.editMode ? 'flex' : 'none';
@@ -736,6 +826,11 @@
 
             canvas.width = w;
             canvas.height = h;
+            webglCanvas.width = w;
+            webglCanvas.height = h;
+            if (gl) {
+                gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            }
             scale = originalImage.width / w; // Store resolution scale factor
         }
 
@@ -962,6 +1057,96 @@
 
         // Render Canvas Pipeline
         function render() {
+            if (state.useWebGL && gl) {
+                renderWebGL();
+            } else {
+                renderCanvas2D();
+            }
+        }
+
+        function renderWebGL() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear 2D canvas
+
+            gl.clearColor(0.0, 0.0, 0.0, 0.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            if (!state.fillEnabled || triangles.length === 0) return;
+
+            gl.useProgram(webglProgram);
+
+            const resolutionUniformLocation = gl.getUniformLocation(webglProgram, "uResolution");
+            const alphaUniformLocation = gl.getUniformLocation(webglProgram, "uAlpha");
+
+            gl.uniform2f(resolutionUniformLocation, gl.canvas.width, gl.canvas.height);
+            gl.uniform1f(alphaUniformLocation, state.blendOpacity);
+
+            const positionLocation = gl.getAttribLocation(webglProgram, "aVertexPosition");
+            const colorLocation = gl.getAttribLocation(webglProgram, "aVertexColor");
+
+            gl.enableVertexAttribArray(positionLocation);
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+
+            const positions = new Float32Array(triangles.length * 2);
+            const colors = new Float32Array(triangles.length * 3);
+
+            for (let i = 0; i < triangles.length; i += 3) {
+                const p0 = points[triangles[i]];
+                const p1 = points[triangles[i+1]];
+                const p2 = points[triangles[i+2]];
+
+                let s0_x = p0[0], s0_y = p0[1];
+                let s1_x = p1[0], s1_y = p1[1];
+                let s2_x = p2[0], s2_y = p2[1];
+
+                if (state.morphFactor < 1.0) {
+                    const cx = (p0[0] + p1[0] + p2[0]) / 3;
+                    const cy = (p0[1] + p1[1] + p2[1]) / 3;
+                    s0_x = cx + (p0[0] - cx) * state.morphFactor;
+                    s0_y = cy + (p0[1] - cy) * state.morphFactor;
+                    s1_x = cx + (p1[0] - cx) * state.morphFactor;
+                    s1_y = cy + (p1[1] - cy) * state.morphFactor;
+                    s2_x = cx + (p2[0] - cx) * state.morphFactor;
+                    s2_y = cy + (p2[1] - cy) * state.morphFactor;
+                }
+
+                positions[i*2] = s0_x;
+                positions[i*2 + 1] = s0_y;
+                positions[(i+1)*2] = s1_x;
+                positions[(i+1)*2 + 1] = s1_y;
+                positions[(i+2)*2] = s2_x;
+                positions[(i+2)*2 + 1] = s2_y;
+
+                const color = triangleColors[i / 3] || [0, 0, 0];
+                const r = color[0] / 255;
+                const g = color[1] / 255;
+                const b = color[2] / 255;
+
+                for (let j=0; j<3; j++) {
+                    colors[(i+j)*3] = r;
+                    colors[(i+j)*3+1] = g;
+                    colors[(i+j)*3+2] = b;
+                }
+            }
+
+            gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+            gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+            gl.enableVertexAttribArray(colorLocation);
+            gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW);
+            gl.vertexAttribPointer(colorLocation, 3, gl.FLOAT, false, 0, 0);
+
+            // Enable blending for transparency
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+            gl.drawArrays(gl.TRIANGLES, 0, triangles.length);
+
+            // WebGL doesn't natively do nice wireframes easily, so we overlay Canvas 2D for interactive/wireframe
+            renderOverlay2D();
+        }
+
+        function renderCanvas2D() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // Layer 1: Raw source image for blending
@@ -1022,8 +1207,52 @@
             }
 
             ctx.globalAlpha = 1.0;
+            renderOverlay2D();
+        }
 
-            // Layer 3: Interactive Edit Mode Handles
+        function renderOverlay2D() {
+            // Layer 3: Interactive Edit Mode Handles and Wireframes for WebGL mode
+            if (state.useWebGL && state.wireframeEnabled) {
+                ctx.globalAlpha = state.blendOpacity;
+                for (let i = 0; i < triangles.length; i += 3) {
+                    const p0 = points[triangles[i]];
+                    const p1 = points[triangles[i+1]];
+                    const p2 = points[triangles[i+2]];
+
+                    let s0_x = p0[0], s0_y = p0[1];
+                    let s1_x = p1[0], s1_y = p1[1];
+                    let s2_x = p2[0], s2_y = p2[1];
+
+                    if (state.morphFactor < 1.0) {
+                        const cx = (p0[0] + p1[0] + p2[0]) / 3;
+                        const cy = (p0[1] + p1[1] + p2[1]) / 3;
+                        s0_x = cx + (p0[0] - cx) * state.morphFactor;
+                        s0_y = cy + (p0[1] - cy) * state.morphFactor;
+                        s1_x = cx + (p1[0] - cx) * state.morphFactor;
+                        s1_y = cy + (p1[1] - cy) * state.morphFactor;
+                        s2_x = cx + (p2[0] - cx) * state.morphFactor;
+                        s2_y = cy + (p2[1] - cy) * state.morphFactor;
+                    }
+
+                    ctx.beginPath();
+                    ctx.moveTo(s0_x, s0_y);
+                    ctx.lineTo(s1_x, s1_y);
+                    ctx.lineTo(s2_x, s2_y);
+                    ctx.closePath();
+
+                    const color = triangleColors[i / 3] || [0, 0, 0];
+                    if (state.preset === 'cyberpunk') {
+                        ctx.strokeStyle = `rgba(0, 240, 255, ${state.blendOpacity * 0.75})`;
+                        ctx.lineWidth = 0.75;
+                    } else {
+                        ctx.strokeStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
+                        ctx.lineWidth = 0.5;
+                    }
+                    ctx.stroke();
+                }
+                ctx.globalAlpha = 1.0;
+            }
+
             if (state.editMode) {
                 // Highlight hovered point
                 if (hoveredPointIdx !== -1) {

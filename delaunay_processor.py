@@ -77,6 +77,9 @@ class DelaunayProcessor:
         # Remove duplicate points
         self.points = np.unique(self.points, axis=0)
         
+        # Compute integral image for O(1) rectangular sum lookups
+        integral_img = cv2.integral(self.image)
+
         # 6. Compute Delaunay Triangulation
         tri = Delaunay(self.points)
         
@@ -102,12 +105,20 @@ class DelaunayProcessor:
                 cy = min(max(0, int(np.mean(pts[:, 1]))), self.h - 1)
                 mean_color = self.image[cy, cx].tolist()
             else:
-                # Local ROI mask: incredibly fast to allocate for small triangle bounding boxes
-                roi_mask = np.zeros((h_roi, w_roi), dtype=np.uint8)
-                cv2.drawContours(roi_mask, [pts - [x_min, y_min]], 0, 255, -1)
+                # O(1) bounding box sum using integral image
+                # integral_img has shape (H+1, W+1, C)
+                # The sum over rectangle [y_min, y_max] x [x_min, x_max] is:
+                # I(y_max+1, x_max+1) + I(y_min, x_min) - I(y_max+1, x_min) - I(y_min, x_max+1)
+
+                sum_color = (
+                    integral_img[y_max + 1, x_max + 1]
+                    + integral_img[y_min, x_min]
+                    - integral_img[y_max + 1, x_min]
+                    - integral_img[y_min, x_max + 1]
+                )
                 
-                roi_img = self.image[y_min:y_max+1, x_min:x_max+1]
-                mean_color = cv2.mean(roi_img, mask=roi_mask)[:3]
+                area = w_roi * h_roi
+                mean_color = (sum_color / area).tolist()
                 
                 # Centroid fallback if the triangle covers 0 pixel centers
                 if sum(mean_color) == 0:
