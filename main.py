@@ -9,9 +9,10 @@ from utils import calculate_mse, calculate_ssim, save_triangles, save_svg, save_
 def main():
     parser = argparse.ArgumentParser(description="Advanced Delaunay Triangulation for Efficient Low-Poly Abstraction")
     parser.add_argument("input", help="Path to input image")
-    parser.add_argument("--k", type=int, default=15, help="Number of k-means color regions (default: 15)")
-    parser.add_argument("--b_dist", type=int, default=5, help="Boundary seed point spacing Bpointdist (default: 5)")
-    parser.add_argument("--density", type=float, default=0.001, help="Interior random point density (default: 0.001)")
+    parser.add_argument("--style", choices=["cyberpunk", "minimalist", "highfidelity"], help="Apply a pre-tuned visual style")
+    parser.add_argument("--k", type=int, help="Number of k-means color regions")
+    parser.add_argument("--b_dist", type=int, help="Boundary seed point spacing Bpointdist")
+    parser.add_argument("--density", type=float, help="Interior random point density")
     parser.add_argument("--output", default="technical_result.png", help="Path to output image")
     parser.add_argument("--save_data", action="store_true", help="Save triangle data to .txt")
     parser.add_argument("--save_svg", action="store_true", help="Save vector representation to .svg")
@@ -19,14 +20,46 @@ def main():
 
     args = parser.parse_args()
 
+    # Pre-tuned styles mapping
+    styles = {
+        "cyberpunk": {"k": 20, "b_dist": 18, "density": 0.0008},
+        "minimalist": {"k": 8, "b_dist": 28, "density": 0.0003},
+        "highfidelity": {"k": 15, "b_dist": 12, "density": 0.0025}
+    }
+
+    # Set default values if not provided
+    k = args.k
+    b_dist = args.b_dist
+    density = args.density
+
+    if args.style:
+        style_params = styles[args.style]
+        if k is None:
+            k = style_params["k"]
+        if b_dist is None:
+            b_dist = style_params["b_dist"]
+        if density is None:
+            density = style_params["density"]
+
+    # Fallback to standard defaults if still None
+    if k is None:
+        k = 15
+    if b_dist is None:
+        b_dist = 5
+    if density is None:
+        density = 0.001
+
     print(f"[*] Initializing Technical Abstraction Pipeline...")
+    if args.style:
+        print(f"[*] Applied Style Preset: {args.style.upper()}")
+
     processor = DelaunayProcessor(args.input)
     
     start_time = time.time()
     print(f"[*] Processing image ({processor.w}x{processor.h})...")
-    print(f"[*] Parameters: k={args.k}, Bpointdist={args.b_dist}, Density={args.density}")
+    print(f"[*] Parameters: k={k}, Bpointdist={b_dist}, Density={density}")
     
-    processor.process(k=args.k, b_dist=args.b_dist, interior_density=args.density)
+    processor.process(k=k, b_dist=b_dist, interior_density=density)
     
     end_time = time.time()
     duration = end_time - start_time
