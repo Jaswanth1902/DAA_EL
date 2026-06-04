@@ -451,33 +451,23 @@
                 <input type="file" id="fileInput" accept="image/*" style="display: none;" onchange="handleImageUpload(event)">
             </div>
 
-            <!-- Visual Presets -->
-            <div>
-                <h3 class="section-title">Artistic Style Presets</h3>
-                <div class="preset-grid">
-                    <button class="preset-btn active" id="presetMinimalist" onclick="applyPreset('minimalist')">Minimalist</button>
-                    <button class="preset-btn" id="presetHighFidelity" onclick="applyPreset('highfidelity')">Hi-Fi</button>
-                    <button class="preset-btn" id="presetCyberpunk" onclick="applyPreset('cyberpunk')">Cyberpunk</button>
-                </div>
-            </div>
-
             <!-- Parameters Sliders -->
             <div>
                 <h3 class="section-title">Geometric Settings</h3>
                 
                 <div class="control-group">
-                    <label>Boundary Point Spacing <span class="slider-val" id="bDistVal">25</span></label>
-                    <input type="range" id="bDistSlider" min="5" max="60" value="25" oninput="updateParam('bDist', this.value)">
+                    <label>Boundary Point Spacing <span class="slider-val" id="bDistVal">12</span></label>
+                    <input type="range" id="bDistSlider" min="5" max="60" value="12" oninput="updateParam('bDist', this.value)">
                 </div>
 
                 <div class="control-group">
-                    <label>Edge Sensitivity <span class="slider-val" id="edgeThresholdVal">80</span></label>
-                    <input type="range" id="edgeThresholdSlider" min="10" max="200" value="80" oninput="updateParam('edgeThreshold', this.value)">
+                    <label>Edge Sensitivity <span class="slider-val" id="edgeThresholdVal">50</span></label>
+                    <input type="range" id="edgeThresholdSlider" min="10" max="200" value="50" oninput="updateParam('edgeThreshold', this.value)">
                 </div>
 
                 <div class="control-group">
-                    <label>Interior Density <span class="slider-val" id="interiorDensityVal">0.0005</span></label>
-                    <input type="range" id="interiorDensitySlider" min="0" max="100" value="5" oninput="updateParam('interiorDensity', this.value / 10000)">
+                    <label>Interior Density <span class="slider-val" id="interiorDensityVal">0.0025</span></label>
+                    <input type="range" id="interiorDensitySlider" min="0" max="100" value="25" oninput="updateParam('interiorDensity', this.value / 10000)">
                 </div>
             </div>
 
@@ -572,16 +562,16 @@
     <script>
         // Core state parameters
         const state = {
-            bDist: 25,
-            edgeThreshold: 80,
-            interiorDensity: 0.0005,
+            bDist: 12,
+            edgeThreshold: 50,
+            interiorDensity: 0.0025,
             fillEnabled: true,
             wireframeEnabled: false,
             editMode: false,
             useWebGL: false,
             morphFactor: 1.0,
             blendOpacity: 1.0,
-            preset: 'minimalist',
+            preset: 'highfidelity',
             isAnimating: false
         };
 

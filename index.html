@@ -788,33 +788,23 @@
                     <input type="file" id="studioFileInput" accept="image/*" style="display: none;" onchange="handleStudioUpload(event)">
                 </div>
 
-                <!-- Artistic Presets -->
-                <div class="control-block">
-                    <h4 class="studio-title">Artistic Presets</h4>
-                    <div class="preset-grid">
-                        <button class="btn-preset active" id="btnPresetMinimalist" onclick="setPreset('minimalist')">Minimalist</button>
-                        <button class="btn-preset" id="btnPresetHighFidelity" onclick="setPreset('highfidelity')">Hi-Fi</button>
-                        <button class="btn-preset" id="btnPresetCyberpunk" onclick="setPreset('cyberpunk')">Cyberpunk</button>
-                    </div>
-                </div>
-
                 <!-- Geometric Parameters -->
                 <div class="control-block">
                     <h4 class="studio-title">Geometric Properties</h4>
                     
                     <div class="control-block" style="margin-bottom: 0.5rem;">
-                        <div class="control-label">Boundary Spacing <span class="control-val" id="lblSpacing">25</span></div>
-                        <input type="range" id="sldSpacing" min="5" max="60" value="25" oninput="changeParam('spacing', this.value)">
+                        <div class="control-label">Boundary Spacing <span class="control-val" id="lblSpacing">10</span></div>
+                        <input type="range" id="sldSpacing" min="5" max="60" value="10" oninput="changeParam('spacing', this.value)">
                     </div>
 
                     <div class="control-block" style="margin-bottom: 0.5rem;">
-                        <div class="control-label">Edge Threshold <span class="control-val" id="lblThreshold">80</span></div>
-                        <input type="range" id="sldThreshold" min="10" max="200" value="80" oninput="changeParam('threshold', this.value)">
+                        <div class="control-label">Edge Threshold <span class="control-val" id="lblThreshold">45</span></div>
+                        <input type="range" id="sldThreshold" min="10" max="200" value="45" oninput="changeParam('threshold', this.value)">
                     </div>
 
                     <div class="control-block">
-                        <div class="control-label">Interior Density <span class="control-val" id="lblDensity">0.0005</span></div>
-                        <input type="range" id="sldDensity" min="0" max="100" value="5" oninput="changeParam('density', this.value / 10000)">
+                        <div class="control-label">Interior Density <span class="control-val" id="lblDensity">0.0022</span></div>
+                        <input type="range" id="sldDensity" min="0" max="100" value="22" oninput="changeParam('density', this.value / 10000)">
                     </div>
                 </div>
 
@@ -913,16 +903,16 @@
     <script>
         // Internal State
         const s = {
-            spacing: 25,
-            threshold: 80,
-            density: 0.0005,
+            spacing: 10,
+            threshold: 45,
+            density: 0.0022,
             fill: true,
             wireframe: false,
             edit: false,
             webgl: false,
             morph: 1.0,
             opacity: 1.0,
-            preset: 'minimalist'
+            preset: 'highfidelity'
         };
 
         let srcImage = null;
