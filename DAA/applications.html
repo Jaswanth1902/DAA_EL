@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delaunay Algorithm Use Cases</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #080c14;
+            --card-bg: rgba(17, 24, 39, 0.7);
+            --border-color: rgba(56, 189, 248, 0.15);
+            --text-color: #f3f4f6;
+            --text-muted: #9ca3af;
+            --accent-gradient: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            background-image: radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.04) 0%, transparent 40%),
+                              radial-gradient(circle at 90% 80%, rgba(192, 132, 252, 0.04) 0%, transparent 40%);
+        }
+
+        /* Navigation */
+        nav {
+            background: rgba(8, 12, 20, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1.25rem 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .logo-container { display: flex; align-items: center; gap: 12px; }
+        .logo-icon { width: 28px; height: 28px; background: var(--accent-gradient); clip-path: polygon(50% 0%, 0% 100%, 100% 100%); }
+        .logo-text { font-weight: 800; font-size: 1.4rem; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .nav-links { display: flex; gap: 2rem; }
+        .nav-link { color: var(--text-muted); text-decoration: none; font-weight: 500; font-size: 0.95rem; transition: color 0.2s; }
+        .nav-link:hover { color: var(--text-color); }
+
+        .header {
+            text-align: center;
+            padding: 5rem 2rem 3rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+
+        .gallery {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 4rem;
+        }
+
+        .case-card {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 3rem;
+            align-items: center;
+            backdrop-filter: blur(12px);
+        }
+        .case-card:nth-child(even) {
+            grid-template-columns: 1fr 1fr;
+            direction: rtl;
+        }
+        .case-card:nth-child(even) > * { direction: ltr; }
+
+        .case-content h2 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: #38bdf8;
+        }
+        .case-content p {
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+        .case-badges {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .badge {
+            background: rgba(192, 132, 252, 0.1);
+            color: #c084fc;
+            border: 1px solid rgba(192, 132, 252, 0.3);
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .case-visual {
+            background: #04060b;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.05);
+            padding: 1rem;
+            position: relative;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+        .case-visual img {
+            width: 100%;
+            border-radius: 8px;
+            display: block;
+        }
+        .overlay-stat {
+            position: absolute;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            background: rgba(8, 12, 20, 0.85);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            font-family: 'JetBrains Mono', monospace;
+            color: #10b981;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="logo-container">
+            <div class="logo-icon"></div>
+            <div class="logo-text">Delaunay Art Studio</div>
+        </div>
+        <div class="nav-links">
+            <a href="index.html" class="nav-link">Interactive Studio</a>
+            <a href="explorer.html" class="nav-link">Algorithms Explorer</a>
+            <a href="3d_mesh_viewer.html" class="nav-link">3D Topology Viewer</a>
+            <a href="applications.html" class="nav-link" style="color: #38bdf8;">Industry Use Cases</a>
+        </div>
+    </nav>
+
+    <div class="header">
+        <h1>Industry Applications</h1>
+        <p>The Delaunay algorithmic pipeline isn't just for creating beautiful art. It solves real-world spatial computing and data compression challenges across multiple industries.</p>
+    </div>
+
+    <div class="gallery">
+        
+        <!-- Use Case 1 -->
+        <div class="case-card">
+            <div class="case-content">
+                <h2>1. Ultra-Low Bandwidth Web Placeholders</h2>
+                <p>Modern web applications rely heavily on high-resolution imagery. Loading these over slow mobile connections causes jarring layout shifts (CLS) and poor user experience.</p>
+                <p>By passing images through the Delaunay compressor, a 3 MB raster image can be converted into a lightweight 12 KB vector JSON payload. This is instantly rendered via WebGL as a blurred, geometric placeholder while the heavy bitmap loads in the background.</p>
+                <div class="case-badges">
+                    <span class="badge">Web Performance</span>
+                    <span class="badge">90% Compression</span>
+                    <span class="badge">React / Next.js</span>
+                </div>
+            </div>
+            <div class="case-visual">
+                <img src="preset_comparison.png" alt="Compression Demo">
+                <div class="overlay-stat">3 MB → 12 KB</div>
+            </div>
+        </div>
+
+        <!-- Use Case 2 -->
+        <div class="case-card">
+            <div class="case-content">
+                <h2>2. Generative Indie Game Art</h2>
+                <p>Indie game developers often lack the resources to hand-paint hundreds of background assets or terrain topologies. Our automated parameter sweeps allow developers to instantly stylize normal photographs into game-ready, low-poly aesthetics.</p>
+                <p>Using the Saliency-Driven adaptive mesh, the algorithm automatically allocates more polygons to highly detailed subjects (like characters or foreground objects) and fewer to empty skies, generating optimized collision meshes and rendering geometry.</p>
+                <div class="case-badges">
+                    <span class="badge">Game Development</span>
+                    <span class="badge">Procedural Generation</span>
+                    <span class="badge">Unity / Unreal</span>
+                </div>
+            </div>
+            <div class="case-visual">
+                <img src="param_density_variation.png" alt="Game Art Demo">
+                <div class="overlay-stat">Adaptive Collision Mesh</div>
+            </div>
+        </div>
+
+        <!-- Use Case 3 -->
+        <div class="case-card">
+            <div class="case-content">
+                <h2>3. Stylized Print Media & Posters</h2>
+                <p>Graphic designers spend hours manually placing polygons in Illustrator to create "Cyberpunk" or "Minimalist" triangulated art. Our O(1) Integral Image optimized pipeline does this in milliseconds.</p>
+                <p>The system exports directly to scalable vector formats (SVG), allowing the artwork to be printed at massive billboard sizes without any pixelation or quality loss.</p>
+                <div class="case-badges">
+                    <span class="badge">Graphic Design</span>
+                    <span class="badge">Infinite Scaling (SVG)</span>
+                    <span class="badge">Automated Styling</span>
+                </div>
+            </div>
+            <div class="case-visual">
+                <img src="test_cyberpunk.png" alt="Print Media Demo">
+                <div class="overlay-stat">Infinite Resolution Vector</div>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

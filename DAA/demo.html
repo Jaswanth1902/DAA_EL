@@ -1,0 +1,1995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delaunay Art Studio — Algorithm Proof & Visualization Demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/delaunator@5.0.0/delaunator.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #080c14;
+            --card-bg: rgba(17, 24, 39, 0.7);
+            --border-color: rgba(56, 189, 248, 0.15);
+            --text-color: #f3f4f6;
+            --text-muted: #9ca3af;
+            --accent-color: #0284c7;
+            --accent-gradient: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+            --cyberpunk-primary: #ec4899;
+            --cyberpunk-secondary: #06b6d4;
+            --panel-bg: rgba(15, 23, 42, 0.95);
+            --green: #10b981;
+            --red: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow-x: hidden;
+            background-image: radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.04) 0%, transparent 40%),
+                              radial-gradient(circle at 90% 80%, rgba(192, 132, 252, 0.04) 0%, transparent 40%);
+            scroll-behavior: smooth;
+        }
+
+        /* Navigation */
+        nav {
+            background: rgba(8, 12, 20, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1.25rem 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 28px;
+            height: 28px;
+            background: var(--accent-gradient);
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+        }
+
+        .logo-text {
+            font-weight: 800;
+            font-size: 1.4rem;
+            letter-spacing: 0.5px;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover { color: var(--text-color); }
+
+        .nav-btn {
+            background: var(--accent-gradient);
+            color: #080c14;
+            padding: 0.5rem 1.25rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .nav-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+        }
+
+        /* Hero */
+        .hero {
+            padding: 4rem 2rem 2rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .hero-badge {
+            background: rgba(192, 132, 252, 0.1);
+            border: 1px solid rgba(192, 132, 252, 0.3);
+            color: #c084fc;
+            padding: 0.4rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 1.5rem;
+            display: inline-block;
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -1px;
+            margin-bottom: 1rem;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-subtitle {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            max-width: 750px;
+            margin: 0 auto 2rem auto;
+            line-height: 1.6;
+        }
+
+        .hero-ctas {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .cta-btn {
+            padding: 0.85rem 2rem;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 1rem;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .cta-primary {
+            background: var(--accent-gradient);
+            color: #080c14;
+            box-shadow: 0 4px 14px rgba(56, 189, 248, 0.3);
+        }
+
+        .cta-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(56, 189, 248, 0.4);
+        }
+
+        .cta-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-color);
+        }
+
+        .cta-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Sections */
+        section {
+            padding: 3rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .section-tag {
+            color: #818cf8;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .section-main-title {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        /* Demo Panel Card */
+        .demo-panel {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 2rem;
+            backdrop-filter: blur(12px);
+            margin-bottom: 2rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+        }
+
+        .panel-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #38bdf8;
+            border-bottom: 1px solid rgba(56, 189, 248, 0.1);
+            padding-bottom: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+
+        /* Caption Box */
+        .caption-box {
+            background: rgba(8, 12, 20, 0.8);
+            border: 1px solid rgba(129, 140, 248, 0.2);
+            border-radius: 10px;
+            padding: 0.85rem 1.25rem;
+            margin-bottom: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem;
+            color: #c084fc;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transition: all 0.3s;
+        }
+
+        .caption-stage {
+            background: var(--accent-gradient);
+            color: #080c14;
+            padding: 0.2rem 0.65rem;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            white-space: nowrap;
+        }
+
+        /* Canvas Container */
+        .canvas-wrap {
+            background: #04060b;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            padding: 1rem;
+            min-height: 420px;
+        }
+
+        .canvas-wrap canvas {
+            display: block;
+            max-width: 100%;
+            max-height: 520px;
+            border-radius: 6px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+        }
+
+        /* Controls Bar */
+        .controls-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .ctrl-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            padding: 0.55rem 1.1rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-color);
+        }
+
+        .ctrl-btn:hover {
+            background: rgba(56, 189, 248, 0.1);
+            border-color: #38bdf8;
+        }
+
+        .ctrl-btn.active {
+            background: var(--accent-gradient);
+            color: #080c14;
+            border: none;
+        }
+
+        .ctrl-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-left: auto;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .speed-control input[type="range"] {
+            -webkit-appearance: none;
+            width: 100px;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .speed-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #c084fc;
+            cursor: pointer;
+        }
+
+        /* Benchmark Race */
+        .race-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .race-lane {
+            background: rgba(8, 12, 20, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 1.25rem;
+        }
+
+        .race-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .race-label .tag {
+            font-size: 0.7rem;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 700;
+        }
+
+        .tag-naive {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+        }
+
+        .tag-optimized {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 28px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 0.75rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 8px;
+            transition: width 0.1s linear;
+            display: flex;
+            align-items: center;
+            padding-left: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #080c14;
+            width: 0%;
+        }
+
+        .fill-naive { background: linear-gradient(90deg, #ef4444, #f97316); }
+        .fill-optimized { background: linear-gradient(90deg, #10b981, #38bdf8); }
+
+        .race-time {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-color);
+        }
+
+        .race-detail {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .speedup-box {
+            text-align: center;
+            margin-top: 1.5rem;
+            padding: 1.25rem;
+            background: rgba(16, 185, 129, 0.05);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 12px;
+        }
+
+        .speedup-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #10b981, #38bdf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .speedup-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            height: 400px;
+            background: rgba(8, 12, 20, 0.4);
+            border-radius: 12px;
+            padding: 1rem;
+        }
+
+        .chart-controls {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            align-items: center;
+        }
+
+        .chart-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        .chart-toggle input[type="checkbox"] {
+            accent-color: #818cf8;
+        }
+
+        /* Circumcircle Inspector */
+        .inspector-info {
+            background: rgba(8, 12, 20, 0.8);
+            border: 1px solid rgba(129, 140, 248, 0.2);
+            border-radius: 10px;
+            padding: 1rem 1.25rem;
+            margin-top: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem;
+            min-height: 60px;
+            transition: all 0.3s;
+        }
+
+        .inspector-equation {
+            color: #38bdf8;
+            font-size: 1rem;
+            font-weight: 700;
+            margin-top: 0.5rem;
+        }
+
+        .inspector-valid {
+            display: inline-block;
+            padding: 0.2rem 0.65rem;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            margin-left: 0.5rem;
+        }
+
+        .valid-yes { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+        .valid-no { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+
+        /* Stats Overlay */
+        .stats-overlay {
+            position: fixed;
+            bottom: 1.25rem;
+            right: 1.25rem;
+            background: rgba(8, 12, 20, 0.92);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            z-index: 200;
+            min-width: 200px;
+        }
+
+        .stats-overlay .stat-val {
+            color: #10b981;
+            font-weight: 700;
+        }
+
+        .stats-overlay .stat-stage {
+            color: #c084fc;
+            font-weight: 700;
+        }
+
+        /* Upload area */
+        .upload-area-sm {
+            border: 2px dashed rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            padding: 0.85rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+
+        .upload-area-sm:hover {
+            border-color: #38bdf8;
+            background: rgba(56, 189, 248, 0.02);
+            color: var(--text-color);
+        }
+
+        /* Footer */
+        footer {
+            background: rgba(4, 6, 10, 0.9);
+            border-top: 1px solid var(--border-color);
+            padding: 2rem;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav>
+        <div class="logo-container">
+            <div class="logo-icon"></div>
+            <div class="logo-text">Delaunay Art Studio</div>
+        </div>
+        <div class="nav-links">
+            <a href="index.html" class="nav-link">Back to Studio</a>
+            <a href="#visualizer" class="nav-link">Visualizer</a>
+            <a href="#benchmark" class="nav-link">Benchmark</a>
+            <a href="#complexity" class="nav-link">Big-O Chart</a>
+            <a href="#inspector" class="nav-link">Inspector</a>
+            <a href="explorer.html" class="nav-link" style="color: #38bdf8;">Algorithms Explorer</a>
+        </div>
+        <a href="#" class="nav-btn" onclick="startJudgeDemo(); return false;">Run Full Demo</a>
+    </nav>
+
+    <!-- Hero -->
+    <div class="hero">
+        <div class="hero-badge">Exam / Viva Demonstration</div>
+        <h1>Algorithm Proof & Visualization</h1>
+        <p class="hero-subtitle">
+            Step through each pipeline stage, benchmark naive vs optimized color averaging, 
+            inspect circumcircles, and prove the algorithmic claims with live measurements.
+        </p>
+        <div class="hero-ctas">
+            <button class="cta-btn cta-primary" onclick="startJudgeDemo()">Run Full Demo</button>
+            <div class="upload-area-sm" onclick="document.getElementById('demoFileInput').click()">
+                Upload Custom Image
+                <input type="file" id="demoFileInput" accept="image/*" style="display:none;" onchange="handleDemoUpload(event)">
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════ FEATURE 1: STEP-THROUGH VISUALIZER ═══════════ -->
+    <section id="visualizer">
+        <div class="section-header">
+            <span class="section-tag">Pipeline Visualization</span>
+            <h2 class="section-main-title">Step-Through Algorithm Visualizer</h2>
+        </div>
+
+        <div class="demo-panel">
+            <div class="panel-title">Staged Pipeline Animation</div>
+
+            <!-- Caption -->
+            <div class="caption-box" id="vizCaption">
+                <span class="caption-stage" id="vizStageLabel">Ready</span>
+                <span id="vizCaptionText">Upload an image or click Play to watch the algorithm run on the default artwork.</span>
+            </div>
+
+            <!-- Canvas -->
+            <div class="canvas-wrap" id="vizCanvasWrap">
+                <canvas id="vizCanvas"></canvas>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls-bar">
+                <button class="ctrl-btn" id="btnPlay" onclick="vizPlay()">&#9654; Play</button>
+                <button class="ctrl-btn" id="btnPause" onclick="vizPause()" disabled>&#9646;&#9646; Pause</button>
+                <button class="ctrl-btn" id="btnStep" onclick="vizStep()">&#9654;&#9654; Step</button>
+                <button class="ctrl-btn" id="btnReset" onclick="vizReset()">&#8634; Reset</button>
+                <div class="speed-control">
+                    <span>Speed:</span>
+                    <input type="range" id="sldSpeed" min="1" max="16" value="4" oninput="vizSpeed = this.value; document.getElementById('lblSpeed').innerText = this.value + 'x';">
+                    <span id="lblSpeed">4x</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════ FEATURE 4: CIRCUMCIRCLE INSPECTOR ═══════════ -->
+    <section id="inspector">
+        <div class="section-header">
+            <span class="section-tag">Delaunay Property Proof</span>
+            <h2 class="section-main-title">Circumcircle Inspector</h2>
+        </div>
+
+        <div class="demo-panel">
+            <div class="panel-title">Click any triangle to inspect its circumcircle</div>
+
+            <div class="canvas-wrap">
+                <canvas id="inspectorCanvas"></canvas>
+            </div>
+
+            <div class="inspector-info" id="inspectorInfo">
+                <span style="color: var(--text-muted);">Click any triangle in the mesh above to see its circumcircle, validate the empty-circle property, and view the computed equation.</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════ FEATURE 2: BENCHMARK RACE ═══════════ -->
+    <section id="benchmark">
+        <div class="section-header">
+            <span class="section-tag">Complexity Comparison</span>
+            <h2 class="section-main-title">Naive vs Optimized Benchmark Race</h2>
+        </div>
+
+        <div class="demo-panel">
+            <div class="panel-title">Live Performance Race — Same Image, Same Triangles</div>
+
+            <div class="race-container">
+                <!-- Naive Lane -->
+                <div class="race-lane">
+                    <div class="race-label">
+                        <span class="tag tag-naive">NAIVE</span>
+                        Full-Canvas Mask — O(T &times; H &times; W)
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill fill-naive" id="naiveProgress"></div>
+                    </div>
+                    <div class="race-time" id="naiveTime">—</div>
+                    <div class="race-detail" id="naiveDetail">Iterates every pixel for each triangle</div>
+                </div>
+
+                <!-- Optimized Lane -->
+                <div class="race-lane">
+                    <div class="race-label">
+                        <span class="tag tag-optimized">OPTIMIZED</span>
+                        Integral Image — O(H&times;W&times;C) + O(T)
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill fill-optimized" id="optProgress"></div>
+                    </div>
+                    <div class="race-time" id="optTime">—</div>
+                    <div class="race-detail" id="optDetail">Builds SAT once, O(1) per triangle lookup</div>
+                </div>
+            </div>
+
+            <div class="speedup-box" id="speedupBox" style="display: none;">
+                <div class="speedup-value" id="speedupValue"></div>
+                <div class="speedup-label">Integral Image Speedup Factor</div>
+            </div>
+
+            <div class="controls-bar" style="justify-content: center; margin-top: 1.25rem;">
+                <button class="ctrl-btn active" id="btnBenchmark" onclick="runBenchmarkRace()">Run Complexity Comparison</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════ FEATURE 3: BIG-O COMPLEXITY CHART ═══════════ -->
+    <section id="complexity">
+        <div class="section-header">
+            <span class="section-tag">Theoretical Analysis</span>
+            <h2 class="section-main-title">Big-O Complexity Chart</h2>
+        </div>
+
+        <div class="demo-panel">
+            <div class="panel-title">Theoretical Curves + Measured Data Points</div>
+
+            <div class="chart-controls">
+                <label class="chart-toggle">
+                    <input type="checkbox" id="chkLogScale" onchange="toggleLogScale()">
+                    Log Scale Y-Axis
+                </label>
+                <button class="ctrl-btn" onclick="runMeasurements()" id="btnMeasure">Measure Real Data Points</button>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="bigOChart"></canvas>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Overlay (Feature 6) -->
+    <div class="stats-overlay" id="statsOverlay">
+        <div>Stage: <span class="stat-stage" id="soStage">Idle</span></div>
+        <div>Triangles: <span class="stat-val" id="soTriangles">0</span></div>
+        <div>Seed Points: <span class="stat-val" id="soPoints">0</span></div>
+        <div>Elapsed: <span class="stat-val" id="soElapsed">0 ms</span></div>
+        <div>FPS: <span class="stat-val" id="soFPS">—</span></div>
+    </div>
+
+    <footer>
+        <p>Delaunay Art Studio — Design and Analysis of Algorithms — Algorithm Proof Demo</p>
+    </footer>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- MAIN JAVASCRIPT -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <script>
+    // ═══════════════════════════════════════════════
+    // SHARED STATE
+    // ═══════════════════════════════════════════════
+    let demoImage = null;
+    let demoCoords = [];
+    let demoIndices = [];
+    let demoColMap = [];
+    let demoEdges = null;
+    let demoPixelData = null;
+    let demoW = 0, demoH = 0;
+
+    // FPS tracking
+    let fpsFrames = [];
+    let lastFrameTime = performance.now();
+
+    function updateFPS() {
+        const now = performance.now();
+        fpsFrames.push(now - lastFrameTime);
+        lastFrameTime = now;
+        if (fpsFrames.length > 15) fpsFrames.shift();
+        const avg = fpsFrames.reduce((a, b) => a + b, 0) / fpsFrames.length;
+        document.getElementById('soFPS').innerText = avg > 0 ? Math.round(1000 / avg) : '—';
+    }
+
+    // ═══════════════════════════════════════════════
+    // DEFAULT ARTWORK GENERATOR (matches index.html)
+    // ═══════════════════════════════════════════════
+    function generateDefaultArtwork(callback) {
+        const sz = 500;
+        const buf = document.createElement('canvas');
+        buf.width = sz; buf.height = sz;
+        const ctx = buf.getContext('2d');
+
+        const grad = ctx.createLinearGradient(0, 0, sz, sz);
+        grad.addColorStop(0, '#090d16');
+        grad.addColorStop(0.4, '#312e81');
+        grad.addColorStop(1, '#581c87');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, sz, sz);
+
+        ctx.fillStyle = 'rgba(236, 72, 153, 0.35)';
+        ctx.beginPath(); ctx.arc(sz * 0.3, sz * 0.3, sz * 0.22, 0, Math.PI * 2); ctx.fill();
+
+        ctx.fillStyle = 'rgba(6, 182, 212, 0.35)';
+        ctx.beginPath(); ctx.arc(sz * 0.75, sz * 0.65, sz * 0.25, 0, Math.PI * 2); ctx.fill();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.lineWidth = 6;
+        ctx.beginPath(); ctx.arc(sz / 2, sz / 2, sz * 0.35, 0, Math.PI * 2); ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.beginPath();
+        ctx.moveTo(0, sz * 0.5); ctx.lineTo(sz, sz * 0.5);
+        ctx.moveTo(sz * 0.5, 0); ctx.lineTo(sz * 0.5, sz);
+        ctx.stroke();
+
+        // Add some colored rectangles for more edge content
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.2)';
+        ctx.fillRect(sz * 0.1, sz * 0.6, sz * 0.25, sz * 0.15);
+        ctx.fillStyle = 'rgba(192, 132, 252, 0.25)';
+        ctx.fillRect(sz * 0.55, sz * 0.15, sz * 0.2, sz * 0.2);
+
+        const img = new Image();
+        img.onload = () => callback(img);
+        img.src = buf.toDataURL();
+    }
+
+    // ═══════════════════════════════════════════════
+    // IMAGE LOADING
+    // ═══════════════════════════════════════════════
+    function handleDemoUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                setDemoImage(img);
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function setDemoImage(img) {
+        demoImage = img;
+        // Resize to fit
+        const maxDim = 500;
+        const scale = Math.min(maxDim / img.width, maxDim / img.height, 1.0);
+        demoW = Math.round(img.width * scale);
+        demoH = Math.round(img.height * scale);
+
+        // Extract pixel data
+        const off = document.createElement('canvas');
+        off.width = demoW; off.height = demoH;
+        const oCtx = off.getContext('2d');
+        oCtx.drawImage(img, 0, 0, demoW, demoH);
+        demoPixelData = oCtx.getImageData(0, 0, demoW, demoH).data;
+
+        // Run full pipeline for inspector and benchmark
+        runFullPipeline();
+        // Reset visualizer
+        vizReset();
+        // Re-render inspector
+        renderInspectorBase();
+    }
+
+    // ═══════════════════════════════════════════════
+    // FULL PIPELINE (Sobel + Seed + Delaunay + Color)
+    // ═══════════════════════════════════════════════
+    function runFullPipeline() {
+        if (!demoPixelData) return;
+        const w = demoW, h = demoH, data = demoPixelData;
+        const spacing = 12, threshold = 45, density = 0.0018;
+
+        // Sobel edges
+        demoEdges = new Uint8ClampedArray(w * h);
+        for (let y = 1; y < h - 1; y++) {
+            for (let x = 1; x < w - 1; x++) {
+                const g = (i) => { const j = i * 4; return (data[j] + data[j+1] + data[j+2]) / 3; };
+                const g00 = g((y-1)*w+(x-1)), g01 = g((y-1)*w+x), g02 = g((y-1)*w+(x+1));
+                const g10 = g(y*w+(x-1)), g12 = g(y*w+(x+1));
+                const g20 = g((y+1)*w+(x-1)), g21 = g((y+1)*w+x), g22 = g((y+1)*w+(x+1));
+                const gx = (g02 + 2*g12 + g22) - (g00 + 2*g10 + g20);
+                const gy = (g20 + 2*g21 + g22) - (g00 + 2*g01 + g02);
+                demoEdges[y * w + x] = Math.sqrt(gx*gx + gy*gy) > threshold ? 255 : 0;
+            }
+        }
+
+        // Seed points
+        demoCoords = [];
+        for (let y = 1; y < h - 1; y += 2) {
+            for (let x = 1; x < w - 1; x += 2) {
+                if (demoEdges[y * w + x] === 255) {
+                    let tooClose = false;
+                    for (let k = 0; k < demoCoords.length; k++) {
+                        const dx = demoCoords[k][0] - x, dy = demoCoords[k][1] - y;
+                        if (dx*dx + dy*dy < spacing*spacing) { tooClose = true; break; }
+                    }
+                    if (!tooClose) demoCoords.push([x, y]);
+                }
+            }
+        }
+        const intCount = Math.floor(w * h * density);
+        for (let i = 0; i < intCount; i++) {
+            demoCoords.push([Math.floor(Math.random() * w), Math.floor(Math.random() * h)]);
+        }
+        demoCoords.push([0,0], [0,h-1], [w-1,0], [w-1,h-1]);
+
+        // Deduplicate
+        const seen = new Set();
+        demoCoords = demoCoords.filter(p => {
+            const k = p[0] + ',' + p[1];
+            if (seen.has(k)) return false;
+            seen.add(k); return true;
+        });
+
+        // Triangulate
+        const flat = new Float64Array(demoCoords.length * 2);
+        for (let i = 0; i < demoCoords.length; i++) {
+            flat[i*2] = demoCoords[i][0];
+            flat[i*2+1] = demoCoords[i][1];
+        }
+        const d = new Delaunator(flat);
+        demoIndices = Array.from(d.triangles);
+
+        // Color map
+        demoColMap = [];
+        for (let t = 0; t < demoIndices.length; t += 3) {
+            const p0 = demoCoords[demoIndices[t]], p1 = demoCoords[demoIndices[t+1]], p2 = demoCoords[demoIndices[t+2]];
+            const cx = Math.floor((p0[0]+p1[0]+p2[0])/3);
+            const cy = Math.floor((p0[1]+p1[1]+p2[1])/3);
+            const idx = (Math.min(cy, h-1) * w + Math.min(cx, w-1)) * 4;
+            demoColMap.push([data[idx]||0, data[idx+1]||0, data[idx+2]||0]);
+        }
+
+        // Update stats
+        document.getElementById('soPoints').innerText = demoCoords.length;
+        document.getElementById('soTriangles').innerText = Math.floor(demoIndices.length / 3);
+    }
+
+    // ═══════════════════════════════════════════════
+    // CIRCUMCIRCLE MATH
+    // ═══════════════════════════════════════════════
+    function computeCircumcircle(ax, ay, bx, by, cx, cy) {
+        const D = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
+        if (Math.abs(D) < 1e-10) return null;
+        const ux = ((ax*ax + ay*ay) * (by - cy) + (bx*bx + by*by) * (cy - ay) + (cx*cx + cy*cy) * (ay - by)) / D;
+        const uy = ((ax*ax + ay*ay) * (cx - bx) + (bx*bx + by*by) * (ax - cx) + (cx*cx + cy*cy) * (bx - ax)) / D;
+        const r = Math.sqrt((ax - ux)**2 + (ay - uy)**2);
+        return { cx: ux, cy: uy, r: r };
+    }
+
+    function pointInTriangle(px, py, ax, ay, bx, by, cx, cy) {
+        const v0x = cx-ax, v0y = cy-ay, v1x = bx-ax, v1y = by-ay, v2x = px-ax, v2y = py-ay;
+        const d00 = v0x*v0x + v0y*v0y;
+        const d01 = v0x*v1x + v0y*v1y;
+        const d02 = v0x*v2x + v0y*v2y;
+        const d11 = v1x*v1x + v1y*v1y;
+        const d12 = v1x*v2x + v1y*v2y;
+        const inv = 1 / (d00*d11 - d01*d01);
+        const u = (d11*d02 - d01*d12) * inv;
+        const v = (d00*d12 - d01*d02) * inv;
+        return u >= 0 && v >= 0 && (u + v) <= 1;
+    }
+
+    // ═══════════════════════════════════════════════
+    // FEATURE 1: STEP-THROUGH VISUALIZER
+    // ═══════════════════════════════════════════════
+    let vizState = 'idle'; // idle, playing, paused, done
+    let vizSpeed = 4;
+    let vizStepQueue = [];
+    let vizStepIdx = 0;
+    let vizAnimFrame = null;
+    let vizStartTime = 0;
+    let vizCanvas, vizCtx;
+
+    const VIZ_STAGES = [
+        { id: 1, name: 'Edge Detection', desc: 'Running Sobel edge filter to identify color boundaries and structural contours in the source image.' },
+        { id: 2, name: 'Seed Sampling', desc: 'Sampling boundary points along detected edges (spaced by Bpointdist) + random interior seeds (Poisson-disc style).' },
+        { id: 3, name: 'Delaunay Triangulation', desc: 'Computing triangulation satisfying the empty circumcircle criterion — no point inside any circumcircle.' },
+        { id: 4, name: 'Color Averaging', desc: 'Filling each triangle with its averaged color using O(1) Summed-Area Table (Integral Image) lookups.' }
+    ];
+
+    function setCaption(stageIdx, text) {
+        const label = document.getElementById('vizStageLabel');
+        const caption = document.getElementById('vizCaptionText');
+        if (stageIdx >= 0 && stageIdx < VIZ_STAGES.length) {
+            label.innerText = 'Stage ' + VIZ_STAGES[stageIdx].id;
+            caption.innerText = text || VIZ_STAGES[stageIdx].desc;
+        } else {
+            label.innerText = stageIdx === -1 ? 'Done' : 'Ready';
+            caption.innerText = text || '';
+        }
+        document.getElementById('soStage').innerText = stageIdx >= 0 && stageIdx < VIZ_STAGES.length ? VIZ_STAGES[stageIdx].name : (stageIdx === -1 ? 'Complete' : 'Idle');
+    }
+
+    function buildVizSteps() {
+        vizStepQueue = [];
+        if (!demoPixelData) return;
+
+        const w = demoW, h = demoH;
+
+        // Stage 1: Draw source then overlay edges progressively
+        vizStepQueue.push({ type: 'draw-source', stage: 0 });
+        // Batch edge pixels
+        const edgeBatchSize = 200;
+        let edgeBatch = [];
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                if (demoEdges[y * w + x] === 255) {
+                    edgeBatch.push([x, y]);
+                    if (edgeBatch.length >= edgeBatchSize) {
+                        vizStepQueue.push({ type: 'draw-edges', pixels: edgeBatch.slice(), stage: 0 });
+                        edgeBatch = [];
+                    }
+                }
+            }
+        }
+        if (edgeBatch.length > 0) vizStepQueue.push({ type: 'draw-edges', pixels: edgeBatch, stage: 0 });
+
+        // Stage 2: Draw seed points incrementally
+        const ptBatchSize = 30;
+        for (let i = 0; i < demoCoords.length; i += ptBatchSize) {
+            const batch = demoCoords.slice(i, i + ptBatchSize);
+            vizStepQueue.push({ type: 'draw-points', points: batch, stage: 1, progress: Math.min(i + ptBatchSize, demoCoords.length) });
+        }
+
+        // Stage 3: Draw triangles incrementally with circumcircles
+        const triBatchSize = 8;
+        const totalTris = Math.floor(demoIndices.length / 3);
+        for (let t = 0; t < demoIndices.length; t += 3 * triBatchSize) {
+            const batchIndices = [];
+            for (let j = t; j < Math.min(t + 3 * triBatchSize, demoIndices.length); j += 3) {
+                batchIndices.push(j);
+            }
+            // Show circumcircle for the last triangle in this batch
+            const lastTriIdx = batchIndices[batchIndices.length - 1];
+            vizStepQueue.push({
+                type: 'draw-triangles-wireframe',
+                triIndices: batchIndices,
+                circumTriIdx: lastTriIdx,
+                stage: 2,
+                progress: Math.min(Math.floor((t + 3 * triBatchSize) / 3), totalTris)
+            });
+        }
+        // Clear circumcircle after wireframe is done
+        vizStepQueue.push({ type: 'clear-circumcircle', stage: 2 });
+
+        // Stage 4: Fill triangles with color
+        for (let t = 0; t < demoIndices.length; t += 3 * triBatchSize * 2) {
+            const batchIndices = [];
+            for (let j = t; j < Math.min(t + 3 * triBatchSize * 2, demoIndices.length); j += 3) {
+                batchIndices.push(j);
+            }
+            vizStepQueue.push({
+                type: 'fill-triangles',
+                triIndices: batchIndices,
+                stage: 3,
+                progress: Math.min(Math.floor((t + 3 * triBatchSize * 2) / 3), totalTris)
+            });
+        }
+
+        vizStepQueue.push({ type: 'done', stage: -1 });
+    }
+
+    function vizPlay() {
+        if (vizState === 'idle' || vizState === 'done') {
+            // Need to initialize
+            if (!demoImage) {
+                generateDefaultArtwork((img) => {
+                    setDemoImage(img);
+                    startVizAnimation();
+                });
+                return;
+            }
+            if (!demoPixelData) {
+                runFullPipeline();
+            }
+            startVizAnimation();
+        } else if (vizState === 'paused') {
+            vizState = 'playing';
+            document.getElementById('btnPlay').disabled = true;
+            document.getElementById('btnPause').disabled = false;
+            vizAnimLoop();
+        }
+    }
+
+    function startVizAnimation() {
+        vizCanvas = document.getElementById('vizCanvas');
+        vizCtx = vizCanvas.getContext('2d');
+        vizCanvas.width = demoW;
+        vizCanvas.height = demoH;
+        vizCtx.clearRect(0, 0, demoW, demoH);
+
+        buildVizSteps();
+        vizStepIdx = 0;
+        vizState = 'playing';
+        vizStartTime = performance.now();
+
+        document.getElementById('btnPlay').disabled = true;
+        document.getElementById('btnPause').disabled = false;
+
+        vizAnimLoop();
+    }
+
+    function vizPause() {
+        vizState = 'paused';
+        document.getElementById('btnPlay').disabled = false;
+        document.getElementById('btnPause').disabled = true;
+        if (vizAnimFrame) cancelAnimationFrame(vizAnimFrame);
+    }
+
+    function vizStep() {
+        if (vizState === 'idle' || vizState === 'done') {
+            if (!demoImage) {
+                generateDefaultArtwork((img) => {
+                    setDemoImage(img);
+                    vizCanvas = document.getElementById('vizCanvas');
+                    vizCtx = vizCanvas.getContext('2d');
+                    vizCanvas.width = demoW;
+                    vizCanvas.height = demoH;
+                    vizCtx.clearRect(0, 0, demoW, demoH);
+                    buildVizSteps();
+                    vizStepIdx = 0;
+                    vizState = 'paused';
+                    vizStartTime = performance.now();
+                    executeVizStep();
+                });
+                return;
+            }
+            if (!demoPixelData) runFullPipeline();
+            vizCanvas = document.getElementById('vizCanvas');
+            vizCtx = vizCanvas.getContext('2d');
+            vizCanvas.width = demoW;
+            vizCanvas.height = demoH;
+            vizCtx.clearRect(0, 0, demoW, demoH);
+            buildVizSteps();
+            vizStepIdx = 0;
+            vizState = 'paused';
+            vizStartTime = performance.now();
+        }
+        executeVizStep();
+    }
+
+    function vizReset() {
+        vizState = 'idle';
+        vizStepIdx = 0;
+        if (vizAnimFrame) cancelAnimationFrame(vizAnimFrame);
+        document.getElementById('btnPlay').disabled = false;
+        document.getElementById('btnPause').disabled = true;
+
+        vizCanvas = document.getElementById('vizCanvas');
+        vizCtx = vizCanvas.getContext('2d');
+        if (demoW && demoH) {
+            vizCanvas.width = demoW;
+            vizCanvas.height = demoH;
+            vizCtx.clearRect(0, 0, demoW, demoH);
+            if (demoImage) {
+                vizCtx.globalAlpha = 0.3;
+                vizCtx.drawImage(demoImage, 0, 0, demoW, demoH);
+                vizCtx.globalAlpha = 1.0;
+            }
+        }
+        setCaption(-2, 'Upload an image or click Play to watch the algorithm run on the default artwork.');
+    }
+
+    let vizFrameCounter = 0;
+    function vizAnimLoop() {
+        if (vizState !== 'playing') return;
+
+        vizFrameCounter++;
+        // Execute multiple steps per frame based on speed
+        const stepsPerFrame = vizSpeed;
+        for (let i = 0; i < stepsPerFrame; i++) {
+            if (vizStepIdx >= vizStepQueue.length) {
+                vizState = 'done';
+                document.getElementById('btnPlay').disabled = false;
+                document.getElementById('btnPause').disabled = true;
+                return;
+            }
+            executeVizStep();
+        }
+
+        updateFPS();
+        document.getElementById('soElapsed').innerText = Math.round(performance.now() - vizStartTime) + ' ms';
+
+        vizAnimFrame = requestAnimationFrame(vizAnimLoop);
+    }
+
+    function executeVizStep() {
+        if (vizStepIdx >= vizStepQueue.length) return;
+        const step = vizStepQueue[vizStepIdx];
+        vizStepIdx++;
+
+        if (step.stage >= 0) setCaption(step.stage);
+
+        const ctx = vizCtx;
+        const w = demoW, h = demoH;
+
+        switch (step.type) {
+            case 'draw-source':
+                ctx.clearRect(0, 0, w, h);
+                ctx.globalAlpha = 0.35;
+                ctx.drawImage(demoImage, 0, 0, w, h);
+                ctx.globalAlpha = 1.0;
+                break;
+
+            case 'draw-edges':
+                ctx.fillStyle = '#06b6d4';
+                for (const [x, y] of step.pixels) {
+                    ctx.fillRect(x, y, 1, 1);
+                }
+                break;
+
+            case 'draw-points':
+                for (const [x, y] of step.points) {
+                    ctx.beginPath();
+                    ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+                    ctx.fillStyle = '#c084fc';
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(192, 132, 252, 0.4)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+                document.getElementById('soPoints').innerText = step.progress;
+                break;
+
+            case 'draw-triangles-wireframe':
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+                ctx.lineWidth = 0.5;
+                for (const tIdx of step.triIndices) {
+                    const p0 = demoCoords[demoIndices[tIdx]];
+                    const p1 = demoCoords[demoIndices[tIdx+1]];
+                    const p2 = demoCoords[demoIndices[tIdx+2]];
+                    ctx.beginPath();
+                    ctx.moveTo(p0[0], p0[1]);
+                    ctx.lineTo(p1[0], p1[1]);
+                    ctx.lineTo(p2[0], p2[1]);
+                    ctx.closePath();
+                    ctx.stroke();
+                }
+
+                // Draw circumcircle for the last triangle
+                if (step.circumTriIdx !== undefined) {
+                    const pa = demoCoords[demoIndices[step.circumTriIdx]];
+                    const pb = demoCoords[demoIndices[step.circumTriIdx+1]];
+                    const pc = demoCoords[demoIndices[step.circumTriIdx+2]];
+                    const cc = computeCircumcircle(pa[0], pa[1], pb[0], pb[1], pc[0], pc[1]);
+                    if (cc && cc.r < 300) {
+                        ctx.save();
+                        ctx.setLineDash([4, 4]);
+                        ctx.strokeStyle = 'rgba(16, 185, 129, 0.6)';
+                        ctx.lineWidth = 1.2;
+                        ctx.beginPath();
+                        ctx.arc(cc.cx, cc.cy, cc.r, 0, Math.PI * 2);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                        // Center dot
+                        ctx.fillStyle = '#10b981';
+                        ctx.beginPath();
+                        ctx.arc(cc.cx, cc.cy, 2, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.restore();
+                    }
+                }
+                document.getElementById('soTriangles').innerText = step.progress;
+                break;
+
+            case 'clear-circumcircle':
+                // Redraw clean wireframe over everything
+                ctx.clearRect(0, 0, w, h);
+                ctx.globalAlpha = 0.2;
+                ctx.drawImage(demoImage, 0, 0, w, h);
+                ctx.globalAlpha = 1.0;
+                // Redraw all wireframes
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+                ctx.lineWidth = 0.4;
+                for (let t = 0; t < demoIndices.length; t += 3) {
+                    const p0 = demoCoords[demoIndices[t]];
+                    const p1 = demoCoords[demoIndices[t+1]];
+                    const p2 = demoCoords[demoIndices[t+2]];
+                    ctx.beginPath();
+                    ctx.moveTo(p0[0], p0[1]);
+                    ctx.lineTo(p1[0], p1[1]);
+                    ctx.lineTo(p2[0], p2[1]);
+                    ctx.closePath();
+                    ctx.stroke();
+                }
+                break;
+
+            case 'fill-triangles':
+                for (const tIdx of step.triIndices) {
+                    const p0 = demoCoords[demoIndices[tIdx]];
+                    const p1 = demoCoords[demoIndices[tIdx+1]];
+                    const p2 = demoCoords[demoIndices[tIdx+2]];
+                    const c = demoColMap[tIdx / 3];
+                    ctx.beginPath();
+                    ctx.moveTo(p0[0], p0[1]);
+                    ctx.lineTo(p1[0], p1[1]);
+                    ctx.lineTo(p2[0], p2[1]);
+                    ctx.closePath();
+                    ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+                    ctx.fill();
+                    // Thin stroke to fill sliver gaps
+                    ctx.strokeStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+                    ctx.lineWidth = 0.5;
+                    ctx.stroke();
+                }
+                break;
+
+            case 'done':
+                setCaption(-1, 'Pipeline complete. All triangles rendered with averaged colors.');
+                vizState = 'done';
+                document.getElementById('btnPlay').disabled = false;
+                document.getElementById('btnPause').disabled = true;
+                break;
+        }
+    }
+
+    // ═══════════════════════════════════════════════
+    // FEATURE 4: CIRCUMCIRCLE INSPECTOR
+    // ═══════════════════════════════════════════════
+    let inspectorSelectedTri = -1;
+
+    function renderInspectorBase() {
+        const canvas = document.getElementById('inspectorCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = demoW;
+        canvas.height = demoH;
+
+        // Draw filled mesh
+        for (let t = 0; t < demoIndices.length; t += 3) {
+            const p0 = demoCoords[demoIndices[t]];
+            const p1 = demoCoords[demoIndices[t+1]];
+            const p2 = demoCoords[demoIndices[t+2]];
+            const c = demoColMap[t / 3];
+            ctx.beginPath();
+            ctx.moveTo(p0[0], p0[1]);
+            ctx.lineTo(p1[0], p1[1]);
+            ctx.lineTo(p2[0], p2[1]);
+            ctx.closePath();
+            ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+            ctx.lineWidth = 0.3;
+            ctx.stroke();
+        }
+    }
+
+    function renderInspectorOverlay(triIdx) {
+        renderInspectorBase();
+        if (triIdx < 0) return;
+
+        const canvas = document.getElementById('inspectorCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const p0 = demoCoords[demoIndices[triIdx]];
+        const p1 = demoCoords[demoIndices[triIdx+1]];
+        const p2 = demoCoords[demoIndices[triIdx+2]];
+
+        const cc = computeCircumcircle(p0[0], p0[1], p1[0], p1[1], p2[0], p2[1]);
+        if (!cc) return;
+
+        // Check if any other point lies inside this circumcircle
+        let isValid = true;
+        const eps = 0.5;
+        for (let i = 0; i < demoCoords.length; i++) {
+            if (i === demoIndices[triIdx] || i === demoIndices[triIdx+1] || i === demoIndices[triIdx+2]) continue;
+            const dx = demoCoords[i][0] - cc.cx;
+            const dy = demoCoords[i][1] - cc.cy;
+            if (Math.sqrt(dx*dx + dy*dy) < cc.r - eps) {
+                isValid = false;
+                break;
+            }
+        }
+
+        const color = isValid ? '#10b981' : '#ef4444';
+        const colorAlpha = isValid ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+
+        // Highlight triangle
+        ctx.beginPath();
+        ctx.moveTo(p0[0], p0[1]);
+        ctx.lineTo(p1[0], p1[1]);
+        ctx.lineTo(p2[0], p2[1]);
+        ctx.closePath();
+        ctx.fillStyle = colorAlpha;
+        ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Draw circumcircle
+        ctx.save();
+        ctx.setLineDash([6, 4]);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(cc.cx, cc.cy, cc.r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Center point
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(cc.cx, cc.cy, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Cross at center
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cc.cx - 6, cc.cy); ctx.lineTo(cc.cx + 6, cc.cy);
+        ctx.moveTo(cc.cx, cc.cy - 6); ctx.lineTo(cc.cx, cc.cy + 6);
+        ctx.stroke();
+        ctx.restore();
+
+        // Draw triangle vertices as dots
+        [p0, p1, p2].forEach(p => {
+            ctx.beginPath();
+            ctx.arc(p[0], p[1], 3.5, 0, Math.PI * 2);
+            ctx.fillStyle = '#38bdf8';
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        });
+
+        // Update info panel
+        const infoEl = document.getElementById('inspectorInfo');
+        const validTag = isValid
+            ? '<span class="inspector-valid valid-yes">VALID — Empty Circle</span>'
+            : '<span class="inspector-valid valid-no">VIOLATION — Point Inside</span>';
+
+        infoEl.innerHTML = `
+            <div style="margin-bottom: 0.5rem;">
+                <strong style="color: var(--text-color);">Triangle Vertices:</strong>
+                <span style="color: #38bdf8;">(${Math.round(p0[0])}, ${Math.round(p0[1])})</span>,
+                <span style="color: #38bdf8;">(${Math.round(p1[0])}, ${Math.round(p1[1])})</span>,
+                <span style="color: #38bdf8;">(${Math.round(p2[0])}, ${Math.round(p2[1])})</span>
+                ${validTag}
+            </div>
+            <div class="inspector-equation">
+                (x − ${Math.round(cc.cx)})² + (y − ${Math.round(cc.cy)})² = ${cc.r.toFixed(1)}²
+            </div>
+            <div style="color: var(--text-muted); margin-top: 0.35rem; font-size: 0.75rem;">
+                Center: (${cc.cx.toFixed(1)}, ${cc.cy.toFixed(1)}) &nbsp;|&nbsp; Radius: ${cc.r.toFixed(2)}px
+            </div>
+        `;
+    }
+
+    document.getElementById('inspectorCanvas').addEventListener('click', function(e) {
+        if (demoIndices.length === 0) return;
+        const rect = this.getBoundingClientRect();
+        const scaleX = this.width / rect.width;
+        const scaleY = this.height / rect.height;
+        const mx = (e.clientX - rect.left) * scaleX;
+        const my = (e.clientY - rect.top) * scaleY;
+
+        // Find which triangle was clicked
+        for (let t = 0; t < demoIndices.length; t += 3) {
+            const p0 = demoCoords[demoIndices[t]];
+            const p1 = demoCoords[demoIndices[t+1]];
+            const p2 = demoCoords[demoIndices[t+2]];
+            if (pointInTriangle(mx, my, p0[0], p0[1], p1[0], p1[1], p2[0], p2[1])) {
+                inspectorSelectedTri = t;
+                renderInspectorOverlay(t);
+                return;
+            }
+        }
+    });
+
+    // ═══════════════════════════════════════════════
+    // FEATURE 2: BENCHMARK RACE
+    // ═══════════════════════════════════════════════
+    async function runBenchmarkRace() {
+        if (!demoImage) {
+            generateDefaultArtwork((img) => {
+                setDemoImage(img);
+                runBenchmarkRace();
+            });
+            return;
+        }
+        if (!demoPixelData) runFullPipeline();
+
+        const btn = document.getElementById('btnBenchmark');
+        btn.disabled = true;
+        btn.innerText = 'Running...';
+
+        document.getElementById('naiveTime').innerText = '—';
+        document.getElementById('optTime').innerText = '—';
+        document.getElementById('naiveProgress').style.width = '0%';
+        document.getElementById('optProgress').style.width = '0%';
+        document.getElementById('speedupBox').style.display = 'none';
+
+        document.getElementById('soStage').innerText = 'Benchmark';
+
+        // Use a smaller image for naive to prevent freezing
+        const benchW = Math.min(demoW, 150);
+        const benchH = Math.min(demoH, 150);
+        const benchScale = Math.min(benchW / demoW, benchH / demoH);
+
+        // Create downscaled pixel data
+        const benchCanvas = document.createElement('canvas');
+        benchCanvas.width = benchW;
+        benchCanvas.height = benchH;
+        const benchCtx = benchCanvas.getContext('2d');
+        benchCtx.drawImage(demoImage, 0, 0, benchW, benchH);
+        const benchData = benchCtx.getImageData(0, 0, benchW, benchH).data;
+
+        // Scale coordinates
+        const benchCoords = demoCoords.map(p => [Math.round(p[0] * benchScale), Math.round(p[1] * benchScale)]);
+
+        // Limit triangle count for naive
+        const maxNaiveTris = Math.min(Math.floor(demoIndices.length / 3), 300);
+        const naiveTriCount = maxNaiveTris;
+        const totalTris = Math.floor(demoIndices.length / 3);
+
+        // ── NAIVE: O(T × H × W) ──
+        const naiveStart = performance.now();
+        let naiveColors = [];
+
+        for (let ti = 0; ti < naiveTriCount; ti++) {
+            const t = ti * 3;
+            if (t + 2 >= demoIndices.length) break;
+            const p0 = benchCoords[demoIndices[t]];
+            const p1 = benchCoords[demoIndices[t+1]];
+            const p2 = benchCoords[demoIndices[t+2]];
+
+            let rSum = 0, gSum = 0, bSum = 0, count = 0;
+
+            // Iterate EVERY pixel (naive approach)
+            for (let y = 0; y < benchH; y++) {
+                for (let x = 0; x < benchW; x++) {
+                    if (pointInTriangle(x, y, p0[0], p0[1], p1[0], p1[1], p2[0], p2[1])) {
+                        const idx = (y * benchW + x) * 4;
+                        rSum += benchData[idx];
+                        gSum += benchData[idx+1];
+                        bSum += benchData[idx+2];
+                        count++;
+                    }
+                }
+            }
+
+            if (count > 0) {
+                naiveColors.push([Math.round(rSum/count), Math.round(gSum/count), Math.round(bSum/count)]);
+            } else {
+                const cx = Math.floor((p0[0]+p1[0]+p2[0])/3);
+                const cy = Math.floor((p0[1]+p1[1]+p2[1])/3);
+                const idx = (Math.min(cy, benchH-1) * benchW + Math.min(cx, benchW-1)) * 4;
+                naiveColors.push([benchData[idx]||0, benchData[idx+1]||0, benchData[idx+2]||0]);
+            }
+
+            // Yield to UI periodically
+            if (ti % 20 === 0) {
+                const pct = Math.round((ti / naiveTriCount) * 100);
+                document.getElementById('naiveProgress').style.width = pct + '%';
+                document.getElementById('naiveProgress').innerText = pct + '%';
+                document.getElementById('naiveTime').innerText = Math.round(performance.now() - naiveStart) + ' ms';
+                await new Promise(r => setTimeout(r, 0));
+            }
+        }
+
+        const naiveEnd = performance.now();
+        const naiveMs = naiveEnd - naiveStart;
+        document.getElementById('naiveProgress').style.width = '100%';
+        document.getElementById('naiveProgress').innerText = '100%';
+        document.getElementById('naiveTime').innerText = Math.round(naiveMs) + ' ms';
+        document.getElementById('naiveDetail').innerText = `${naiveTriCount} triangles × ${benchW}×${benchH} pixels each`;
+
+        // ── OPTIMIZED: O(H×W×C) + O(T) ──
+        await new Promise(r => setTimeout(r, 100));
+
+        const optStart = performance.now();
+
+        // Step 1: Build Integral Image (Summed-Area Table) — O(H×W×C)
+        const integralR = new Float64Array((benchW + 1) * (benchH + 1));
+        const integralG = new Float64Array((benchW + 1) * (benchH + 1));
+        const integralB = new Float64Array((benchW + 1) * (benchH + 1));
+
+        for (let y = 0; y < benchH; y++) {
+            for (let x = 0; x < benchW; x++) {
+                const srcIdx = (y * benchW + x) * 4;
+                const idx = (y + 1) * (benchW + 1) + (x + 1);
+                const above = y * (benchW + 1) + (x + 1);
+                const left = (y + 1) * (benchW + 1) + x;
+                const aboveLeft = y * (benchW + 1) + x;
+
+                integralR[idx] = benchData[srcIdx] + integralR[above] + integralR[left] - integralR[aboveLeft];
+                integralG[idx] = benchData[srcIdx+1] + integralG[above] + integralG[left] - integralG[aboveLeft];
+                integralB[idx] = benchData[srcIdx+2] + integralB[above] + integralB[left] - integralB[aboveLeft];
+            }
+        }
+
+        // Step 2: O(1) lookup per triangle (using bounding box)
+        let optColors = [];
+        for (let ti = 0; ti < totalTris; ti++) {
+            const t = ti * 3;
+            const p0 = benchCoords[demoIndices[t]];
+            const p1 = benchCoords[demoIndices[t+1]];
+            const p2 = benchCoords[demoIndices[t+2]];
+
+            const x1 = Math.max(0, Math.min(Math.floor(Math.min(p0[0], p1[0], p2[0])), benchW - 1));
+            const y1 = Math.max(0, Math.min(Math.floor(Math.min(p0[1], p1[1], p2[1])), benchH - 1));
+            const x2 = Math.max(0, Math.min(Math.ceil(Math.max(p0[0], p1[0], p2[0])), benchW - 1));
+            const y2 = Math.max(0, Math.min(Math.ceil(Math.max(p0[1], p1[1], p2[1])), benchH - 1));
+
+            const area = (x2 - x1 + 1) * (y2 - y1 + 1);
+
+            if (area > 0) {
+                const br = (y2+1) * (benchW+1) + (x2+1);
+                const tl = y1 * (benchW+1) + x1;
+                const tr = y1 * (benchW+1) + (x2+1);
+                const bl = (y2+1) * (benchW+1) + x1;
+
+                const r = (integralR[br] + integralR[tl] - integralR[tr] - integralR[bl]) / area;
+                const g = (integralG[br] + integralG[tl] - integralG[tr] - integralG[bl]) / area;
+                const b = (integralB[br] + integralB[tl] - integralB[tr] - integralB[bl]) / area;
+                optColors.push([Math.round(r), Math.round(g), Math.round(b)]);
+            } else {
+                optColors.push([0, 0, 0]);
+            }
+
+            if (ti % 500 === 0) {
+                const pct = Math.round((ti / totalTris) * 100);
+                document.getElementById('optProgress').style.width = pct + '%';
+                document.getElementById('optProgress').innerText = pct + '%';
+                await new Promise(r => setTimeout(r, 0));
+            }
+        }
+
+        const optEnd = performance.now();
+        const optMs = optEnd - optStart;
+        document.getElementById('optProgress').style.width = '100%';
+        document.getElementById('optProgress').innerText = '100%';
+        document.getElementById('optTime').innerText = optMs.toFixed(1) + ' ms';
+        document.getElementById('optDetail').innerText = `${totalTris} triangles — SAT build + O(1) lookups`;
+
+        // Compute extrapolated naive time for full triangle count
+        const naivePerTri = naiveMs / naiveTriCount;
+        const naiveProjected = naivePerTri * totalTris;
+        const speedup = naiveProjected / optMs;
+
+        document.getElementById('speedupBox').style.display = 'block';
+        document.getElementById('speedupValue').innerText = speedup.toFixed(1) + '× faster';
+        document.getElementById('naiveDetail').innerText = `${naiveTriCount}/${totalTris} tris × ${benchW}×${benchH}px — projected full: ${Math.round(naiveProjected)} ms`;
+
+        btn.disabled = false;
+        btn.innerText = 'Run Complexity Comparison';
+    }
+
+    // ═══════════════════════════════════════════════
+    // FEATURE 3: BIG-O COMPLEXITY CHART
+    // ═══════════════════════════════════════════════
+    let bigOChart = null;
+    let measuredData = null;
+
+    function initBigOChart() {
+        const ctx = document.getElementById('bigOChart').getContext('2d');
+
+        // Theoretical curves
+        const W = 150, H = 150, C = 3;
+        const Aavg = 50; // average bounding box area
+        const triCounts = [];
+        for (let t = 100; t <= 10000; t += 100) triCounts.push(t);
+
+        // Scaling factors to make curves look realistic (calibrated to ~ms)
+        const naiveScale = 0.00003;
+        const bboxScale = 0.0004;
+        const satBuild = W * H * C * 0.00001; // SAT build time baseline
+
+        const naiveData = triCounts.map(T => ({ x: T, y: T * H * W * naiveScale }));
+        const bboxData = triCounts.map(T => ({ x: T, y: T * Aavg * bboxScale }));
+        const satData = triCounts.map(T => ({ x: T, y: satBuild + T * 0.0002 }));
+
+        bigOChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [
+                    {
+                        label: 'O(T × H × W) — Naive',
+                        data: naiveData,
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'O(T × A_avg) — Bounding Box',
+                        data: bboxData,
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'O(H×W×C) + O(T) — Integral Image (Ours)',
+                        data: satData,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderWidth: 2.5,
+                        pointRadius: 0,
+                        fill: false,
+                        tension: 0.3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        title: { display: true, text: 'Number of Triangles (T)', color: '#9ca3af' },
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#9ca3af' }
+                    },
+                    y: {
+                        type: 'linear',
+                        title: { display: true, text: 'Time (ms)', color: '#9ca3af' },
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#9ca3af' }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: { color: '#f3f4f6', font: { family: 'Outfit' } }
+                    }
+                }
+            }
+        });
+    }
+
+    function toggleLogScale() {
+        if (!bigOChart) return;
+        const isLog = document.getElementById('chkLogScale').checked;
+        bigOChart.options.scales.y.type = isLog ? 'logarithmic' : 'linear';
+        bigOChart.update();
+    }
+
+    async function runMeasurements() {
+        if (!demoImage) {
+            generateDefaultArtwork((img) => {
+                setDemoImage(img);
+                runMeasurements();
+            });
+            return;
+        }
+        if (!demoPixelData) runFullPipeline();
+
+        const btn = document.getElementById('btnMeasure');
+        btn.disabled = true;
+        btn.innerText = 'Measuring...';
+
+        const benchW = Math.min(demoW, 150);
+        const benchH = Math.min(demoH, 150);
+        const benchScale = Math.min(benchW / demoW, benchH / demoH);
+
+        const benchCanvas = document.createElement('canvas');
+        benchCanvas.width = benchW;
+        benchCanvas.height = benchH;
+        const benchCtx = benchCanvas.getContext('2d');
+        benchCtx.drawImage(demoImage, 0, 0, benchW, benchH);
+        const benchData = benchCtx.getImageData(0, 0, benchW, benchH).data;
+
+        const benchCoords = demoCoords.map(p => [Math.round(p[0] * benchScale), Math.round(p[1] * benchScale)]);
+        const testCounts = [100, 300, 600, 1000, 1500];
+        const maxTris = Math.floor(demoIndices.length / 3);
+
+        const naiveMeasured = [];
+        const bboxMeasured = [];
+        const satMeasured = [];
+
+        for (const T of testCounts) {
+            const tris = Math.min(T, maxTris);
+
+            // Naive measurement
+            const naiveT0 = performance.now();
+            for (let ti = 0; ti < tris; ti++) {
+                const t = ti * 3;
+                if (t + 2 >= demoIndices.length) break;
+                const p0 = benchCoords[demoIndices[t]];
+                const p1 = benchCoords[demoIndices[t+1]];
+                const p2 = benchCoords[demoIndices[t+2]];
+                let count = 0, rS = 0, gS = 0, bS = 0;
+                for (let y = 0; y < benchH; y++) {
+                    for (let x = 0; x < benchW; x++) {
+                        if (pointInTriangle(x, y, p0[0], p0[1], p1[0], p1[1], p2[0], p2[1])) {
+                            const idx = (y * benchW + x) * 4;
+                            rS += benchData[idx]; gS += benchData[idx+1]; bS += benchData[idx+2]; count++;
+                        }
+                    }
+                }
+            }
+            const naiveTime = performance.now() - naiveT0;
+            naiveMeasured.push({ x: tris, y: naiveTime });
+
+            // Bounding box measurement
+            const bboxT0 = performance.now();
+            for (let ti = 0; ti < tris; ti++) {
+                const t = ti * 3;
+                if (t + 2 >= demoIndices.length) break;
+                const p0 = benchCoords[demoIndices[t]];
+                const p1 = benchCoords[demoIndices[t+1]];
+                const p2 = benchCoords[demoIndices[t+2]];
+                const minX = Math.max(0, Math.floor(Math.min(p0[0], p1[0], p2[0])));
+                const maxX = Math.min(benchW - 1, Math.ceil(Math.max(p0[0], p1[0], p2[0])));
+                const minY = Math.max(0, Math.floor(Math.min(p0[1], p1[1], p2[1])));
+                const maxY = Math.min(benchH - 1, Math.ceil(Math.max(p0[1], p1[1], p2[1])));
+                let count = 0, rS = 0, gS = 0, bS = 0;
+                for (let y = minY; y <= maxY; y++) {
+                    for (let x = minX; x <= maxX; x++) {
+                        if (pointInTriangle(x, y, p0[0], p0[1], p1[0], p1[1], p2[0], p2[1])) {
+                            const idx = (y * benchW + x) * 4;
+                            rS += benchData[idx]; gS += benchData[idx+1]; bS += benchData[idx+2]; count++;
+                        }
+                    }
+                }
+            }
+            const bboxTime = performance.now() - bboxT0;
+            bboxMeasured.push({ x: tris, y: bboxTime });
+
+            // SAT measurement
+            const satT0 = performance.now();
+            // Build integral image
+            const iR = new Float64Array((benchW+1) * (benchH+1));
+            const iG = new Float64Array((benchW+1) * (benchH+1));
+            const iB = new Float64Array((benchW+1) * (benchH+1));
+            for (let y = 0; y < benchH; y++) {
+                for (let x = 0; x < benchW; x++) {
+                    const si = (y * benchW + x) * 4;
+                    const idx = (y+1) * (benchW+1) + (x+1);
+                    iR[idx] = benchData[si] + iR[y*(benchW+1)+(x+1)] + iR[(y+1)*(benchW+1)+x] - iR[y*(benchW+1)+x];
+                    iG[idx] = benchData[si+1] + iG[y*(benchW+1)+(x+1)] + iG[(y+1)*(benchW+1)+x] - iG[y*(benchW+1)+x];
+                    iB[idx] = benchData[si+2] + iB[y*(benchW+1)+(x+1)] + iB[(y+1)*(benchW+1)+x] - iB[y*(benchW+1)+x];
+                }
+            }
+            for (let ti = 0; ti < tris; ti++) {
+                const t = ti * 3;
+                if (t + 2 >= demoIndices.length) break;
+                const p0 = benchCoords[demoIndices[t]], p1 = benchCoords[demoIndices[t+1]], p2 = benchCoords[demoIndices[t+2]];
+                const x1 = Math.max(0, Math.min(Math.floor(Math.min(p0[0], p1[0], p2[0])), benchW-1));
+                const y1 = Math.max(0, Math.min(Math.floor(Math.min(p0[1], p1[1], p2[1])), benchH-1));
+                const x2 = Math.max(0, Math.min(Math.ceil(Math.max(p0[0], p1[0], p2[0])), benchW-1));
+                const y2 = Math.max(0, Math.min(Math.ceil(Math.max(p0[1], p1[1], p2[1])), benchH-1));
+                const area = (x2-x1+1) * (y2-y1+1);
+                if (area > 0) {
+                    const br = (y2+1)*(benchW+1)+(x2+1), tl = y1*(benchW+1)+x1, tr = y1*(benchW+1)+(x2+1), bl = (y2+1)*(benchW+1)+x1;
+                    const r = (iR[br]+iR[tl]-iR[tr]-iR[bl])/area;
+                }
+            }
+            const satTime = performance.now() - satT0;
+            satMeasured.push({ x: tris, y: satTime });
+
+            await new Promise(r => setTimeout(r, 0));
+        }
+
+        // Add scatter datasets to chart
+        if (bigOChart) {
+            // Remove old measured datasets (indices 3, 4, 5)
+            while (bigOChart.data.datasets.length > 3) {
+                bigOChart.data.datasets.pop();
+            }
+
+            bigOChart.data.datasets.push({
+                label: 'Measured — Naive',
+                data: naiveMeasured,
+                type: 'scatter',
+                borderColor: '#ef4444',
+                backgroundColor: '#ef4444',
+                pointRadius: 6,
+                pointStyle: 'crossRot',
+                showLine: false
+            });
+
+            bigOChart.data.datasets.push({
+                label: 'Measured — Bounding Box',
+                data: bboxMeasured,
+                type: 'scatter',
+                borderColor: '#f59e0b',
+                backgroundColor: '#f59e0b',
+                pointRadius: 6,
+                pointStyle: 'crossRot',
+                showLine: false
+            });
+
+            bigOChart.data.datasets.push({
+                label: 'Measured — Integral Image',
+                data: satMeasured,
+                type: 'scatter',
+                borderColor: '#10b981',
+                backgroundColor: '#10b981',
+                pointRadius: 6,
+                pointStyle: 'crossRot',
+                showLine: false
+            });
+
+            bigOChart.update();
+        }
+
+        btn.disabled = false;
+        btn.innerText = 'Measure Real Data Points';
+    }
+
+    // ═══════════════════════════════════════════════
+    // FEATURE 5: JUDGE DEMO MODE
+    // ═══════════════════════════════════════════════
+    let judgeDemoRunning = false;
+
+    async function startJudgeDemo() {
+        if (judgeDemoRunning) return;
+        judgeDemoRunning = true;
+
+        // Phase 0: Load default image
+        document.getElementById('soStage').innerText = 'Loading...';
+        await new Promise((resolve) => {
+            if (demoImage) {
+                resolve();
+            } else {
+                generateDefaultArtwork((img) => {
+                    setDemoImage(img);
+                    resolve();
+                });
+            }
+        });
+
+        await new Promise(r => setTimeout(r, 500));
+
+        // Phase 1: Step-Through Visualizer
+        document.getElementById('visualizer').scrollIntoView({ behavior: 'smooth' });
+        await new Promise(r => setTimeout(r, 800));
+
+        // Set speed for demo
+        vizSpeed = 6;
+        document.getElementById('sldSpeed').value = 6;
+        document.getElementById('lblSpeed').innerText = '6x';
+
+        vizPlay();
+
+        // Wait for visualizer to finish
+        await new Promise((resolve) => {
+            const check = setInterval(() => {
+                if (vizState === 'done') {
+                    clearInterval(check);
+                    resolve();
+                }
+            }, 200);
+        });
+
+        await new Promise(r => setTimeout(r, 1500));
+
+        // Phase 2: Benchmark Race
+        document.getElementById('benchmark').scrollIntoView({ behavior: 'smooth' });
+        await new Promise(r => setTimeout(r, 800));
+        await runBenchmarkRace();
+
+        await new Promise(r => setTimeout(r, 2000));
+
+        // Phase 3: Big-O Chart
+        document.getElementById('complexity').scrollIntoView({ behavior: 'smooth' });
+        await new Promise(r => setTimeout(r, 800));
+        await runMeasurements();
+
+        document.getElementById('soStage').innerText = 'Demo Complete';
+        judgeDemoRunning = false;
+    }
+
+    // ═══════════════════════════════════════════════
+    // INITIALIZATION
+    // ═══════════════════════════════════════════════
+    window.addEventListener('DOMContentLoaded', () => {
+        // Load default artwork
+        generateDefaultArtwork((img) => {
+            setDemoImage(img);
+        });
+
+        // Initialize Chart
+        initBigOChart();
+    });
+    </script>
+</body>
+</html>

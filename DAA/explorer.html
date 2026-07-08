@@ -1,0 +1,2158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delaunay Art Studio — Algorithms Explorer</title>
+    <!-- Google Fonts Outfit & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #080c14;
+            --card-bg: rgba(17, 24, 39, 0.7);
+            --border-color: rgba(56, 189, 248, 0.15);
+            --text-color: #f3f4f6;
+            --text-muted: #9ca3af;
+            --accent-color: #0284c7;
+            --accent-gradient: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+            --cyberpunk-primary: #ec4899;
+            --cyberpunk-secondary: #06b6d4;
+            --panel-bg: rgba(15, 23, 42, 0.95);
+            --code-bg: #030712;
+            --highlight-bg: rgba(56, 189, 248, 0.2);
+            --highlight-border: #38bdf8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow-x: hidden;
+            background-image: radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.04) 0%, transparent 40%),
+                              radial-gradient(circle at 90% 80%, rgba(192, 132, 252, 0.04) 0%, transparent 40%);
+        }
+
+        /* Navigation */
+        nav {
+            background: rgba(8, 12, 20, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1.25rem 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 28px;
+            height: 28px;
+            background: var(--accent-gradient);
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+        }
+
+        .logo-text {
+            font-weight: 800;
+            font-size: 1.4rem;
+            letter-spacing: 0.5px;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover {
+            color: var(--text-color);
+        }
+
+        .nav-btn {
+            background: var(--accent-gradient);
+            color: #080c14;
+            padding: 0.5rem 1.25rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .nav-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+        }
+
+        /* Workspace Grid */
+        .workspace-grid {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            height: calc(100vh - 73px);
+            overflow: hidden;
+        }
+
+        /* Left Sidebar */
+        .sidebar {
+            background: rgba(8, 12, 20, 0.9);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem 1rem;
+            overflow-y: auto;
+            gap: 1rem;
+        }
+
+        .sidebar-header {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #38bdf8;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(56, 189, 248, 0.15);
+            margin-bottom: 0.5rem;
+        }
+
+        .algo-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .algo-card:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(56, 189, 248, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .algo-card.active {
+            background: rgba(56, 189, 248, 0.08);
+            border-color: #38bdf8;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.1);
+        }
+
+        .algo-name {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-color);
+        }
+
+        .algo-card.active .algo-name {
+            color: #38bdf8;
+        }
+
+        .algo-purpose {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            line-height: 1.3;
+        }
+
+        .algo-badges {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.25rem;
+        }
+
+        .badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 0.15rem 0.45rem;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+
+        .badge-time {
+            background: rgba(129, 140, 248, 0.12);
+            color: #818cf8;
+            border: 1px solid rgba(129, 140, 248, 0.2);
+        }
+
+        .badge-space {
+            background: rgba(192, 132, 252, 0.12);
+            color: #c084fc;
+            border: 1px solid rgba(192, 132, 252, 0.2);
+        }
+
+        /* Right Panel */
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            background: #04060b;
+        }
+
+        .panel-padding {
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            max-width: 1300px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Algorithm Header Section */
+        .algo-header {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem 2rem;
+            backdrop-filter: blur(12px);
+        }
+
+        .algo-header h2 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            margin-bottom: 0.75rem;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .algo-header p {
+            color: var(--text-muted);
+            font-size: 0.98rem;
+            line-height: 1.6;
+        }
+
+        /* Split-screen Visual Panel — visualization on top, pseudocode below */
+        .split-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        /* Pseudocode Box */
+        .pseudocode-container {
+            background: var(--code-bg);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 14px;
+            padding: 1.25rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem;
+            line-height: 1.5;
+            color: #d1d5db;
+            overflow-x: auto;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            max-height: 340px; /* compact scrollable pseudocode beneath visualization */
+        }
+
+        .code-title {
+            color: #9ca3af;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding-bottom: 0.5rem;
+        }
+
+        .code-line {
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            white-space: pre;
+            border-left: 2px solid transparent;
+            transition: all 0.1s ease;
+        }
+
+        .code-line.highlight {
+            background: var(--highlight-bg);
+            border-left-color: var(--highlight-border);
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        /* Demo Canvas Area — full width, sits above pseudocode */
+        .demo-visualizer {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            backdrop-filter: blur(8px);
+            width: 100%;
+        }
+
+        .canvas-container {
+            width: 100%;
+            flex-grow: 1;
+            min-height: 520px; /* taller since we now have full horizontal width */
+            background: #020306;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .canvas-container canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: contain; /* maintains aspect ratio without stretching/distortion */
+        }
+
+        .visualizer-overlay {
+            position: absolute;
+            top: 0.75rem;
+            left: 0.75rem;
+            background: rgba(8, 12, 20, 0.85);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.4rem 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            color: #10b981;
+            z-index: 5;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+        }
+
+        /* Demo Controls */
+        .demo-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+            margin-top: auto; /* keeps controls pinned at the bottom */
+        }
+
+        .control-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-color);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .control-btn:hover {
+            background: rgba(56, 189, 248, 0.1);
+            border-color: #38bdf8;
+        }
+
+        .control-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .speed-slider-wrap {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .speed-slider-wrap input[type="range"] {
+            -webkit-appearance: none;
+            width: 80px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        .speed-slider-wrap input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+        }
+
+        /* Deep Dive Accordion */
+        .deep-dive-accordion {
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid rgba(56, 189, 248, 0.1);
+            border-radius: 12px;
+            margin-top: 1.25rem;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+
+        .deep-dive-accordion:hover {
+            border-color: rgba(56, 189, 248, 0.3);
+        }
+
+        .accordion-summary {
+            padding: 0.85rem 1.25rem;
+            font-weight: 600;
+            font-size: 0.88rem;
+            color: #38bdf8;
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            outline: none;
+            user-select: none;
+            background: rgba(8, 12, 20, 0.4);
+            border-bottom: 1px solid transparent;
+        }
+
+        .deep-dive-accordion[open] .accordion-summary {
+            border-bottom-color: rgba(56, 189, 248, 0.1);
+        }
+
+        .accordion-summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .accordion-summary::before {
+            content: '▶';
+            font-size: 0.7rem;
+            display: inline-block;
+            transition: transform 0.2s ease;
+        }
+
+        .deep-dive-accordion[open] .accordion-summary::before {
+            transform: rotate(90deg);
+        }
+
+        .accordion-content {
+            padding: 1.25rem;
+        }
+
+        .deep-dive-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 900px) {
+            .deep-dive-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .deep-dive-section {
+            background: rgba(3, 7, 18, 0.2);
+            border-radius: 8px;
+            padding: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.02);
+        }
+
+        .deep-dive-section h4 {
+            font-size: 0.85rem;
+            color: #818cf8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        .deep-dive-section p, .deep-dive-section ol {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+            margin: 0; /* remove default browser margin that creates blank space */
+        }
+
+        .deep-dive-section ol {
+            padding-left: 1.2rem;
+            margin: 0;
+        }
+
+        .deep-dive-section ol li {
+            margin-bottom: 0.3rem;
+        }
+
+        .deep-dive-section ol li:last-child {
+            margin-bottom: 0;
+        }
+
+        .deep-dive-section ol li::marker {
+            color: #38bdf8;
+            font-weight: bold;
+        }
+
+        /* Complexity Table */
+        .complexity-table-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem 2rem;
+            backdrop-filter: blur(12px);
+        }
+
+        .table-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #38bdf8;
+            border-bottom: 1px solid rgba(56, 189, 248, 0.1);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+            text-align: left;
+        }
+
+        th {
+            color: var(--text-muted);
+            font-weight: 600;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            color: var(--text-color);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .complexity-formula {
+            font-family: 'JetBrains Mono', monospace;
+            color: #818cf8;
+            font-weight: bold;
+        }
+
+        .table-justification {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+            max-width: 500px;
+        }
+
+
+
+        /* Canny Step Slider Style */
+        .canny-slider-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .canny-step-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #38bdf8;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Navigation -->
+    <nav>
+        <div class="logo-container">
+            <div class="logo-icon"></div>
+            <div class="logo-text">Delaunay Art Studio</div>
+        </div>
+        <div class="nav-links">
+            <a href="index.html" class="nav-link">Interactive Studio</a>
+            <a href="demo.html" class="nav-link">Algorithm Demo</a>
+            <a href="explorer.html" class="nav-link" style="color: #38bdf8;">Algorithms Explorer</a>
+        </div>
+        <a href="index.html#studio" class="nav-btn">Launch Studio</a>
+    </nav>
+
+    <!-- Workspace Grid -->
+    <div class="workspace-grid">
+        
+        <!-- Left Sidebar: Algorithms list -->
+        <div class="sidebar">
+            <div class="sidebar-header">Core Algorithms</div>
+            
+            <div class="algo-card active" onclick="switchTab(0)">
+                <div class="algo-name">1. MiniBatch K-Means</div>
+                <div class="algo-purpose">Segments color domains in spatial clusters.</div>
+                <div class="algo-badges">
+                    <span class="badge badge-time">O(n * k * i * d)</span>
+                    <span class="badge badge-space">O(n + k)</span>
+                </div>
+            </div>
+
+            <div class="algo-card" onclick="switchTab(1)">
+                <div class="algo-name">2. Canny Edge Detection</div>
+                <div class="algo-purpose">Extracts boundary profiles from color maps.</div>
+                <div class="algo-badges">
+                    <span class="badge badge-time">O(P)</span>
+                    <span class="badge badge-space">O(P)</span>
+                </div>
+            </div>
+
+            <div class="algo-card" onclick="switchTab(2)">
+                <div class="algo-name">3. Poisson-Disc Sampling</div>
+                <div class="algo-purpose">Distributes seed coordinates with distance constraints.</div>
+                <div class="algo-badges">
+                    <span class="badge badge-time">O(P) or O(N log N)</span>
+                    <span class="badge badge-space">O(N)</span>
+                </div>
+            </div>
+
+            <div class="algo-card" onclick="switchTab(3)">
+                <div class="algo-name">4. Delaunay Triangulation</div>
+                <div class="algo-purpose">Computes the optimal empty-circle coordinate mesh.</div>
+                <div class="algo-badges">
+                    <span class="badge badge-time">O(N log N)</span>
+                    <span class="badge badge-space">O(N)</span>
+                </div>
+            </div>
+
+            <div class="algo-card" onclick="switchTab(4)">
+                <div class="algo-name">5. Summed-Area Table</div>
+                <div class="algo-purpose">Computes constant-time O(1) rectangle color integrals.</div>
+                <div class="algo-badges">
+                    <span class="badge badge-time">O(H * W) + O(T)</span>
+                    <span class="badge badge-space">O(H * W)</span>
+                </div>
+            </div>
+
+            <div class="algo-card" onclick="switchTab(5)">
+                <div class="algo-name">6. WebGL/Canvas Rendering</div>
+                <div class="algo-purpose">Submits coordinates and color buffers to GPU.</div>
+                <div class="algo-badges">
+                    <span class="badge badge-time">O(T)</span>
+                    <span class="badge badge-space">O(N + T)</span>
+                </div>
+            </div>
+        </div>
+        <!-- Right Panel: Interactive Visualizer & details -->
+        <div class="right-panel">
+            <div class="panel-padding">
+                
+                <!-- SECTION A: HEADER -->
+                <div class="algo-header">
+                    <h2 id="tabTitle">Algorithm Title</h2>
+                    <p id="tabExplanation" style="margin-bottom: 0.5rem;">Algorithm Explanation details...</p>
+                    
+                    <details class="deep-dive-accordion" open>
+                        <summary class="accordion-summary">
+                            Deep Dive: Algorithm Mechanics & Analysis
+                        </summary>
+                        <div class="accordion-content">
+                            <div class="deep-dive-grid">
+                                <div class="deep-dive-section">
+                                    <h4>1. Problem it Solves</h4>
+                                    <p id="ddProblem">...</p>
+                                </div>
+                                <div class="deep-dive-section">
+                                    <h4>2. How it Works</h4>
+                                    <ol id="ddHow">
+                                        <!-- Step items populated by JS -->
+                                    </ol>
+                                </div>
+                                <div class="deep-dive-section">
+                                    <h4>3. Why this Algorithm vs Alternatives</h4>
+                                    <p id="ddAlternatives">...</p>
+                                </div>
+                                <div class="deep-dive-section">
+                                    <h4>4. Where it Plugs into the Pipeline</h4>
+                                    <p id="ddPipeline">...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- SECTION B: SPLIT PANEL — visualization on top, pseudocode below -->
+                <div class="split-panel">
+                    
+                    <!-- TOP: Full-width Live Visualization Demo -->
+                    <div class="demo-visualizer">
+                        <div class="code-title">Live Visualization Demo</div>
+
+                        <!-- Mini Canny step slider if applicable -->
+                        <div class="canny-slider-wrap" id="cannyStepSliderWrap" style="display: none;">
+                            <span class="canny-step-title" id="cannyStepName">Stage 1: Grayscale Image</span>
+                            <div class="speed-slider-wrap">
+                                <input type="range" id="cannyStepRange" min="1" max="6" value="1" oninput="changeCannyStep(this.value)">
+                            </div>
+                        </div>
+
+                        <div class="canvas-container">
+                            <!-- Floating status overlay -->
+                            <div class="visualizer-overlay" id="visualizerOverlay">
+                                <div>State: Idle</div>
+                            </div>
+                            <canvas id="explorerCanvas"></canvas>
+                        </div>
+
+                        <!-- Controls -->
+                        <div class="demo-controls">
+                            <button class="control-btn" id="btnPlay" onclick="playAnim()">&#9654; Play</button>
+                            <button class="control-btn" id="btnPause" onclick="pauseAnim()" disabled>&#9646;&#9646; Pause</button>
+                            <button class="control-btn" id="btnStep" onclick="stepAnim()">&#9654;&#9654; Step</button>
+                            <button class="control-btn" id="btnReset" onclick="resetAnim()">&#8634; Reset</button>
+                            
+                            <div class="speed-slider-wrap" id="speedSliderWrap">
+                                <span>Speed:</span>
+                                <input type="range" id="sldSpeed" min="1" max="10" value="3" oninput="changeSpeed(this.value)">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BOTTOM: Scrollable Pseudocode Box -->
+                    <div class="pseudocode-container">
+                        <div class="code-title">Algorithm Pseudocode</div>
+                        <div id="codeLinesWrap">
+                            <!-- Lines inserted by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION C: COMPLEXITY TABLE -->
+                <div class="complexity-table-card">
+                    <div class="table-title">Asymptotic Analysis Reference</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Complexity Metric</th>
+                                <th>Worst Case</th>
+                                <th>Average Case</th>
+                                <th>Best Case</th>
+                                <th>Space Complexity</th>
+                                <th>Real-Time Justification</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Theoretical Bounds</td>
+                                <td class="complexity-formula" id="tdWorst">-</td>
+                                <td class="complexity-formula" id="tdAvg">-</td>
+                                <td class="complexity-formula" id="tdBest">-</td>
+                                <td class="complexity-formula" id="tdSpace">-</td>
+                                <td class="table-justification" id="tdJustification">-</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         INTERACTIVE VISUALIZER LOGIC
+         ═══════════════════════════════════════════════ -->
+    <script>
+        // Shared State
+        let currentTabIdx = 0;
+        let animState = 'idle'; // idle, playing, paused, done
+        let animStepIdx = 0;
+        let animTimer = null;
+        let animSpeedMs = 500; // time per step
+        
+        let canvas, ctx;
+        let testImage = null;
+        let generatedData = null;
+
+        // Visualizer State values
+        let kmeansPoints = [];
+        let kmeansCentroids = [];
+        let kmeansOldCentroids = [];
+        let kmeansMaxIterations = 15;
+        let kmeansVariance = 0;
+
+        let samplingPoints = [];
+        let samplingPointIdx = 0;
+
+        let delaunayPoints = [];
+        let delaunayTriangles = [];
+        let delaunayCircle = null;
+        let delaunayFlips = [];
+
+        let satGridSize = 12;
+        let satCellX = 0, satCellY = 0;
+        let satSumTable = null;
+        let satQueryRect = null;
+
+        let renderMeshTriangles = [];
+        let renderMeshIdx = 0;
+
+        // Core Algorithm Details mapping
+        const algorithms = [
+            {
+                title: "Adaptive MiniBatch K-Means (Segmentation)",
+                explanation: "To cluster complex color profiles, the algorithm executes unsupervised MiniBatch K-Means. Rather than recalculating every single pixel over long convergence epochs (traditional K-Means), MiniBatch K-Means processes small random subsets (batches) of pixels at each iteration. This bounds cluster-movement convergence iterations. To guarantee real-time desktop execution, we downsample the input resolution to a max dimension of 512px, compute clusters, and upscale using Nearest-Neighbor Interpolation to preserve sharp, noiseless boundary edges.",
+                deepDive: {
+                    problem: "Without color clustering, raw images contain millions of distinct RGB colors, leading to high-frequency noise and chaotic triangle coloring that ruins the clean low-poly aesthetic.",
+                    how: [
+                        "Initialize K cluster centroids randomly in RGB color space.",
+                        "Select a random MiniBatch subset of pixels from the downsampled image at each iteration.",
+                        "Assign each pixel in the batch to its nearest centroid using Euclidean distance.",
+                        "Update centroids by computing the mean position of all pixels in the batch assigned to them.",
+                        "Calculate WCSS (Within-Cluster Sum of Squares) variance to track convergence.",
+                        "Stop when centroid updates fall below a threshold (epsilon) or max iterations are reached."
+                    ],
+                    alternatives: "Mean-Shift and DBSCAN were considered, but their runtimes scale quadratically O(P²) with pixel count P and depend heavily on density parameters, making them too slow. MiniBatch K-Means bounds convergence epochs to a constant iteration limit, reducing computational complexity from O(P * K * I) to O(B * K * I) where B is the tiny batch size, achieving real-time performance.",
+                    pipeline: "Takes the raw RGB image, clusters the color space, and outputs a segmented, noise-free index-color map used as the input for edge detection."
+                },
+                pseudocode: [
+                    "// Adaptive MiniBatch K-Means Algorithm",
+                    "function miniBatchKMeans(DataPoints, K, BatchSize):",
+                    "   Initialize K centroids randomly in Color Swatch space",
+                    "   Initialize iteration_counter = 0, convergence = false",
+                    "   while not convergence and iteration_counter < max_iters:",
+                    "       Select a Batch of size BatchSize from DataPoints randomly",
+                    "       for each point p in Batch:",
+                    "           Find nearest Centroid c_idx for point p",
+                    "           Cache assignment[p] = c_idx",
+                    "       for each Centroid c:",
+                    "           Update c position to mean of points in Batch assigned to it",
+                    "       Calculate WCSS (within-cluster sum of squares) variance",
+                    "       check if WCSS change < epsilon -> convergence = true",
+                    "       iteration_counter++",
+                    "   return Centroids"
+                ],
+                complexity: {
+                    worst: "O(n * k * i * d)",
+                    average: "O(n * k * i * d)",
+                    best: "O(n * k * i * d)",
+                    space: "O(n * d + k * d)",
+                    justification: "Calculates colors by evaluating downsampled subsets of pixels. Since BatchSize << total pixel count, complexity scales linearly with data points and iterations, making it viable for 60FPS segmentation."
+                }
+            },
+            {
+                title: "Canny Edge Detection",
+                explanation: "Extracts structural contours to identify boundaries between clustered color regions. The pipeline executes five distinct filters in order: 1) Grayscale conversion to extract luminance, 2) Gaussian smoothing to clean high-frequency noise, 3) Sobel gradient convolution to compute local magnitudes, 4) Non-Maximum Suppression to thin out wide boundaries, and 5) Double Thresholding + Hysteresis tracking to isolate only strong connected edges.",
+                deepDive: {
+                    problem: "A naive gradient filter creates wide, blurry edge regions and is extremely sensitive to noise, causing the sampler to place clusters of redundant points and miss actual geometric outlines.",
+                    how: [
+                        "Convert the RGB segmented image to grayscale to obtain luminance.",
+                        "Apply a 5x5 Gaussian blur to smooth out pixelation and eliminate noise.",
+                        "Compute Sobel intensity gradients Gx, Gy and directions.",
+                        "Perform Non-Maximum Suppression (NMS) to thin out broad gradient peaks into 1-pixel wide ridges.",
+                        "Apply Double Thresholding to classify pixels as strong, weak, or non-edges.",
+                        "Run Edge Hysteresis tracking to keep weak edges only if they connect to a strong edge."
+                    ],
+                    alternatives: "Laplacian edge kernels are simple and fast O(P) but highly susceptible to high-frequency noise, producing disconnected speckles. Canny Edge Detection provides clean, single-pixel wide edge tracks with high structural fidelity, ensuring points are only sampled on true boundary contours.",
+                    pipeline: "Takes the clustered color-segmentation map and outputs a binary edge map of structural boundaries to guide the point sampler."
+                },
+                pseudocode: [
+                    "// 5-Stage Canny Edge Detection Pipeline",
+                    "function cannyEdgeDetection(Image):",
+                    "   1. Gray = convertToGrayscale(Image)",
+                    "   2. Blur = applyGaussianBlur(Gray, kernel_size=5)",
+                    "   3. G_mag, G_dir = computeSobelGradients(Blur)",
+                    "   4. Suppressed = nonMaximumSuppression(G_mag, G_dir)",
+                    "   5. Edges = doubleThresholdAndHysteresis(Suppressed, Low, High)",
+                    "   return Edges"
+                ],
+                complexity: {
+                    worst: "O(P)",
+                    average: "O(P)",
+                    best: "O(P)",
+                    space: "O(P)",
+                    justification: "Processes every pixel with fixed-size kernel matrices. Since each stage operates on a constant local neighborhood, the runtime scale is strictly linear with pixel count P = H × W."
+                }
+            },
+            {
+                title: "Feature-Aware Point Sampling",
+                explanation: "Distributes point seeds dynamically across the image canvas. Instead of allocating points uniformly (which dilutes fine details) or purely randomly (which clusters seeds into messy slivers), we sample points along Canny boundary lines spaced out by a minimum Euclidean distance Bpointdist. This acts as a localized Poisson-disc distribution. The remaining space is filled with random interior seeds (density). Corners are locked to guarantee full canvas boundary triangulation.",
+                deepDive: {
+                    problem: "Uniform grid sampling distributes points equally in flat regions and detailed outlines, resulting in lost features (like eyes and edges) and boring, blocky meshes.",
+                    how: [
+                        "Iterate through edge pixels in the binary Canny edge map.",
+                        "For each edge pixel, check if there is an existing point within a minimum distance Bpointdist.",
+                        "If no point is too close, add it to the coordinate list (local Poisson-disc sampling).",
+                        "Fill the interior remaining space with randomly distributed points matching the density slider.",
+                        "Lock the four corners of the canvas to prevent triangulation gaps at boundaries.",
+                        "Deduplicate coordinates to prevent co-linear overlap errors."
+                    ],
+                    alternatives: "Global Poisson-disc sampling is O(P²) and too slow for high-performance interactive web tools. Our hybrid approach checks spacing only along the extracted 1D edge paths and fills the rest randomly, providing the detail-retention benefits of Poisson-disc in linear O(P + N log N) time.",
+                    pipeline: "Takes the binary Canny edge map and outputs a set of feature-aware coordinate seeds ready for triangulation."
+                },
+                pseudocode: [
+                    "// Feature-Aware Seed Point Sampling",
+                    "function sampleSeedPoints(EdgeMap, Bpointdist, Density):",
+                    "   Initialize CoordinatesList = []",
+                    "   for each edge pixel p(x,y) in EdgeMap:",
+                    "       check if distance to any point in CoordinatesList < Bpointdist",
+                    "       if too close -> skip pixel",
+                    "       else -> add p to CoordinatesList",
+                    "   Sample random interior points based on Density",
+                    "   Add 4 canvas corners to CoordinatesList",
+                    "   Deduplicate points",
+                    "   return CoordinatesList"
+                ],
+                complexity: {
+                    worst: "O(P) + O(N²)",
+                    average: "O(P) + O(N * log N)",
+                    best: "O(P) + O(N)",
+                    space: "O(N)",
+                    justification: "Scanning the edge map is O(P). Checking local points for Poisson-disc spacing is accelerated using a spatial grid hash (reducing average distance checks to constant time), ensuring fast seed generation."
+                }
+            },
+            {
+                title: "Delaunay Triangulation",
+                explanation: "Builds a planar triangle mesh over the generated coordinate seeds. Triangulation satisfies the empty-circumcircle criterion: the circumcircle of any triangle contains no other seed points. This constraint maximizes the minimum angle of all triangles, preventing awkward skinny slivers which degrade render aesthetics. Delaunator executes a high-speed sweep-line Delaunay algorithm.",
+                deepDive: {
+                    problem: "Naive triangulation models can form overlapping or highly-skewed 'skinny' triangles (slivers), resulting in terrible render artifacts and broken textures.",
+                    how: [
+                        "Initialize a super-triangle that encapsulates all sampled coordinate seeds.",
+                        "Insert seed points one-by-one; locate all existing triangles whose circumcircles contain the new point.",
+                        "Remove these invalid triangles, leaving a polygonal hole.",
+                        "Create new triangles by connecting the new point to all vertices of the polygonal hole.",
+                        "Perform edge-flipping dynamically to restore the empty-circumcircle condition.",
+                        "Remove the super-triangle's vertices and any connected triangles to output the final mesh."
+                    ],
+                    alternatives: "Brute-force Bowyer-Watson scales at O(N²) which lags severely when dealing with thousands of points. Delaunator's sweep-line optimization sorts coordinates spatially and divides the canvas, reducing average triangulation complexity to O(N log N) to run in milliseconds.",
+                    pipeline: "Takes the coordinate seeds from the sampler and outputs a non-overlapping index mesh of triangles."
+                },
+                pseudocode: [
+                    "// Bowyer-Watson Incremental Delaunay Triangulation",
+                    "function delaunayTriangulation(PointsList):",
+                    "   Initialize super_triangle enclosing all points",
+                    "   for each point p in PointsList:",
+                    "       Find all triangles whose circumcircles contain p",
+                    "       Identify the boundary polygon of these invalid triangles",
+                    "       Remove invalid triangles from mesh",
+                    "       Triangulate the boundary polygon from point p",
+                    "   Remove triangles containing super_triangle vertices",
+                    "   Execute edge-flips to restore empty circumcircle condition",
+                    "   return Triangles"
+                ],
+                complexity: {
+                    worst: "O(N²)",
+                    average: "O(N * log N)",
+                    best: "O(N * log N)",
+                    space: "O(N)",
+                    justification: "Delaunator sweep-line optimization performs spatial divide-and-conquer on sorted coordinate indices. Triangulation of 5,000 points completes in under 15ms in standard browser threads."
+                }
+            },
+            {
+                title: "Summed-Area Table (Integral Image)",
+                explanation: "A major mathematical optimization for average color rendering. Traditional color evaluation of a triangle requires building a polygon contour mask, iterating through every pixel inside the bounding box, and computing the sum, scaling at O(T × Area). We build an Integral Image (Summed-Area Table) where each cell `I(x,y)` stores the sum of all pixels above-left of `(x,y)`. To calculate the average color of a triangle's rectangular bounding box, we query exactly 4 lookups: `Sum = I(BR) + I(TL) - I(TR) - I(BL)`. This runs in O(1) constant time, speeding up color evaluation by over 600%.",
+                deepDive: {
+                    problem: "Traditional color lookup computes the average color inside a triangular bounding box by iterating over all pixels inside the polygon, scaling at O(T * Area) and lagging to single-digit FPS.",
+                    how: [
+                        "Create an empty table SAT of size (Width+1) x (Height+1).",
+                        "Sweep the image to compute the cumulative sum: SAT[x+1][y+1] = pixel + SAT[x][y+1] + SAT[x+1][y] - SAT[x][y].",
+                        "To find the sum of any rectangular bounding box, perform 4 array lookups: Sum = SAT[BR] + SAT[TL] - SAT[TR] - SAT[BL].",
+                        "Divide the Sum by the box area to instantly get the average color."
+                    ],
+                    alternatives: "Naive raster loop integration requires scanning every pixel inside each triangle's bounding box, which scales with resolution and triangle count. Summed-Area Table performs a single-pass O(H * W) calculation, enabling all subsequent color queries to execute in O(1) constant time regardless of size.",
+                    pipeline: "Takes the original pixel data to generate the integral table, and provides average colors instantly for each triangle in the mesh."
+                },
+                pseudocode: [
+                    "// Summed-Area Table (Integral Image) Generation & O(1) Query",
+                    "function buildSummedAreaTable(Image):",
+                    "   Initialize SAT[Width+1][Height+1] = 0",
+                    "   for y from 0 to Height-1:",
+                    "       for x from 0 to Width-1:",
+                    "           SAT[x+1][y+1] = Image[x][y] + SAT[x][y+1] + SAT[x+1][y] - SAT[x][y]",
+                    "   return SAT",
+                    "",
+                    "function queryAverageColor(SAT, x1, y1, x2, y2):",
+                    "   Area = (x2 - x1 + 1) * (y2 - y1 + 1)",
+                    "   Sum = SAT[x2+1][y2+1] + SAT[x1][y1] - SAT[x2+1][y1] - SAT[x1][y2+1]",
+                    "   return Sum / Area // O(1) complexity"
+                ],
+                complexity: {
+                    worst: "O(H * W) + O(T)",
+                    average: "O(H * W) + O(T)",
+                    best: "O(H * W) + O(T)",
+                    space: "O(H * W)",
+                    justification: "Building the integral table is a single-pass O(H × W) image sweep. Once created, every triangle color lookup is a constant 4-cell addition/subtraction, scaling strictly as O(T) regardless of triangle sizes."
+                }
+            },
+            {
+                title: "Canvas / WebGL Rendering Pipeline",
+                explanation: "Prepares and submits structural data buffers to the GPU for hardware-accelerated drawing. Rather than calling slower canvas vector API calls (e.g. `stroke()`, `fill()`) thousands of times inside loops, we pack coordinate points into a flat float array (Vertex Buffer) and indices defining triangles into an integer array (Index Buffer). In WebGL, this data is loaded into VBO/IBO buffers, compiled in shaders, and rendered in a single draw call: `gl.drawElements()`. This shifts processing overhead from the CPU to the GPU vertex processor, achieving stable 60 FPS transitions.",
+                deepDive: {
+                    problem: "Standard 2D Canvas context rendering executes drawing paths sequentially on the CPU, causing severe rendering bottlenecks and lag during real-time mesh morphing.",
+                    how: [
+                        "Flatten coordinate points into a single Float32Array (Vertex Buffer Object - VBO).",
+                        "Flatten computed average colors into a Float32Array (Color Buffer).",
+                        "Flatten triangle connectivity indices into a Uint16Array (Element Array Buffer - IBO).",
+                        "Bind and upload these three buffers to the GPU VRAM.",
+                        "Configure the Vertex Shader to project vertices and pass color attributes.",
+                        "Call gl.drawElements(gl.TRIANGLES) to rasterize the entire mesh in parallel on the GPU."
+                    ],
+                    alternatives: "CPU-bound 2D Canvas drawing (beginPath, lineTo, fill) requires context-switching for each triangle, dropping frame rates under heavy load. WebGL buffer submission batches all coordinates into a single GPU call, unlocking parallel vertex shading and stable 60 FPS transitions.",
+                    pipeline: "Takes the completed mesh indices and colors and draws the final high-fidelity low-poly masterpiece on the screen."
+                },
+                pseudocode: [
+                    "// GPU Buffer Pipeline Rendering",
+                    "function setupWebGLBuffers(VerticesList, TrianglesList, ColorsList):",
+                    "   1. Bind VertexBuffer -> upload flat Float32Array(VerticesList)",
+                    "   2. Bind ColorBuffer -> upload flat Float32Array(ColorsList)",
+                    "   3. Bind IndexBuffer -> upload flat Uint16Array(TrianglesList)",
+                    "   Configure Vertex Shader attribute positions and color inputs",
+                    "   Configure Fragment Shader color output",
+                    "   gl.clearColor(0.08, 0.12, 0.20, 1.0)",
+                    "   gl.drawElements(gl.TRIANGLES, count=TrianglesList.length, gl.UNSIGNED_SHORT, offset=0)",
+                    "   return"
+                ],
+                complexity: {
+                    worst: "O(T)",
+                    average: "O(T)",
+                    best: "O(T)",
+                    space: "O(N + T)",
+                    justification: "Constructing GPU memory buffer arrays scales linearly with coordinate count N and triangle count T. Once loaded on the GPU, drawing is executed in parallel in O(1) CPU execution time."
+                }
+            }
+        ];
+
+        // Highlight code line in pseudocode panel
+        function highlightCodeLine(lineIdx) {
+            const lines = document.getElementsByClassName('code-line');
+            for (let i = 0; i < lines.length; i++) {
+                lines[i].classList.remove('highlight');
+            }
+            if (lineIdx >= 0 && lineIdx < lines.length) {
+                lines[lineIdx].classList.add('highlight');
+            }
+        }
+
+        // Switch active tab in Explorer sidebar
+        function switchTab(tabIdx) {
+            currentTabIdx = tabIdx;
+            
+            // UI tabs update
+            const cards = document.getElementsByClassName('algo-card');
+            for (let i = 0; i < cards.length; i++) {
+                cards[i].classList.remove('active');
+            }
+            cards[tabIdx].classList.add('active');
+
+            // Set Header content
+            const algo = algorithms[tabIdx];
+            document.getElementById('tabTitle').innerText = algo.title;
+            document.getElementById('tabExplanation').innerText = algo.explanation;
+
+            // Set Deep Dive content
+            document.getElementById('ddProblem').innerText = algo.deepDive.problem;
+            
+            const ddHowWrap = document.getElementById('ddHow');
+            ddHowWrap.innerHTML = "";
+            algo.deepDive.how.forEach(step => {
+                const li = document.createElement('li');
+                li.innerText = step;
+                ddHowWrap.appendChild(li);
+            });
+            
+            document.getElementById('ddAlternatives').innerText = algo.deepDive.alternatives;
+            document.getElementById('ddPipeline').innerText = algo.deepDive.pipeline;
+
+            // Set Pseudocode
+            const wrap = document.getElementById('codeLinesWrap');
+            wrap.innerHTML = "";
+            algo.pseudocode.forEach((line) => {
+                const div = document.createElement('div');
+                div.className = 'code-line';
+                div.textContent = line;
+                wrap.appendChild(div);
+            });
+
+            // Set Complexity Table
+            document.getElementById('tdWorst').innerText = algo.complexity.worst;
+            document.getElementById('tdAvg').innerText = algo.complexity.average;
+            document.getElementById('tdBest').innerText = algo.complexity.best;
+            document.getElementById('tdSpace').innerText = algo.complexity.space;
+            document.getElementById('tdJustification').innerText = algo.complexity.justification;
+
+            // Custom controls UI
+            const cannySlider = document.getElementById('cannyStepSliderWrap');
+            const playControls = document.getElementById('btnPlay');
+            const stepBtn = document.getElementById('btnStep');
+            const sldSpeedWrap = document.getElementById('speedSliderWrap');
+
+            if (tabIdx === 1) { // Canny
+                cannySlider.style.display = 'flex';
+                playControls.disabled = true;
+                stepBtn.disabled = true;
+                sldSpeedWrap.style.display = 'none';
+            } else {
+                cannySlider.style.display = 'none';
+                playControls.disabled = false;
+                stepBtn.disabled = false;
+                sldSpeedWrap.style.display = 'flex';
+            }
+
+            // Reset visualizer for new tab
+            resetAnim();
+        }
+
+        // Controls play state
+        function playAnim() {
+            if (animState === 'playing') return;
+            animState = 'playing';
+            document.getElementById('btnPlay').disabled = true;
+            document.getElementById('btnPause').disabled = false;
+            
+            runAnimTimer();
+        }
+
+        function pauseAnim() {
+            animState = 'paused';
+            document.getElementById('btnPlay').disabled = false;
+            document.getElementById('btnPause').disabled = true;
+            if (animTimer) clearTimeout(animTimer);
+        }
+
+        function stepAnim() {
+            pauseAnim();
+            executeAnimStep();
+        }
+
+        function resetAnim() {
+            pauseAnim();
+            animState = 'idle';
+            animStepIdx = 0;
+            document.getElementById('btnPlay').disabled = false;
+            document.getElementById('btnPause').disabled = true;
+            
+            // Reset state per tab
+            initTabState();
+            drawCanvas();
+        }
+
+        function changeSpeed(val) {
+            animSpeedMs = 1200 / parseInt(val);
+            if (animState === 'playing') {
+                pauseAnim();
+                playAnim();
+            }
+        }
+
+        function runAnimTimer() {
+            if (animState !== 'playing') return;
+            executeAnimStep();
+            animTimer = setTimeout(runAnimTimer, animSpeedMs);
+        }
+
+        // Initialize state for active tab visualization
+        function initTabState() {
+            const w = canvas.width;
+            const h = canvas.height;
+
+            switch (currentTabIdx) {
+                case 0: // K-Means
+                    // Generate random points in 2D Color Swatch space
+                    kmeansPoints = [];
+                    for (let i = 0; i < 180; i++) {
+                        // cluster around 3 distinct color regions
+                        let rx, ry, rColor;
+                        const rnd = Math.random();
+                        if (rnd < 0.33) {
+                            rx = 80 + Math.random() * 60;
+                            ry = 120 + Math.random() * 60;
+                            rColor = [220, 20, 100]; // Neon pink hue base
+                        } else if (rnd < 0.66) {
+                            rx = 260 + Math.random() * 70;
+                            ry = 90 + Math.random() * 70;
+                            rColor = [10, 180, 220]; // Cyan hue base
+                        } else {
+                            rx = 180 + Math.random() * 80;
+                            ry = 220 + Math.random() * 60;
+                            rColor = [120, 80, 230]; // Violet base
+                        }
+                        kmeansPoints.push({ x: rx, y: ry, color: rColor, cluster: -1 });
+                    }
+                    // Centroids initialization
+                    kmeansCentroids = [
+                        { x: 50 + Math.random() * 300, y: 50 + Math.random() * 200, color: [239, 68, 68] },
+                        { x: 50 + Math.random() * 300, y: 50 + Math.random() * 200, color: [59, 130, 246] },
+                        { x: 50 + Math.random() * 300, y: 50 + Math.random() * 200, color: [16, 185, 129] }
+                    ];
+                    kmeansOldCentroids = [];
+                    kmeansVariance = 99999;
+                    document.getElementById('visualizerOverlay').innerHTML = `
+                        <div>Algorithm: K-Means</div>
+                        <div>Iteration: 0</div>
+                        <div>WCSS Variance: Calculating...</div>
+                    `;
+                    break;
+
+                case 1: // Canny
+                    // Nothing to initialize. Handled by step range
+                    document.getElementById('cannyStepRange').value = 1;
+                    changeCannyStep(1);
+                    break;
+
+                case 2: // Poisson Sampling
+                    // Generate edge map background (sobel)
+                    samplingPoints = [];
+                    samplingPointIdx = 0;
+                    document.getElementById('visualizerOverlay').innerHTML = `
+                        <div>Algorithm: Point Sampler</div>
+                        <div>Points Placed: 0</div>
+                        <div>Poisson checks: -</div>
+                    `;
+                    break;
+
+                case 3: // Triangulation
+                    // Spread points across full virtual 400x300 canvas
+                    delaunayPoints = [
+                        [20, 20], [200, 15], [380, 20],
+                        [20, 150], [130, 100], [270, 90], [380, 140],
+                        [80, 280], [200, 260], [320, 280], [380, 280],
+                        [160, 190], [300, 200]
+                    ];
+                    delaunayTriangles = [];
+                    delaunayCircle = null;
+                    delaunayFlips = [];
+                    document.getElementById('visualizerOverlay').innerHTML = `
+                        <div>Algorithm: Triangulation</div>
+                        <div>Vertices: 0</div>
+                        <div>Triangles: 0</div>
+                    `;
+                    break;
+
+                case 4: // SAT
+                    satCellX = 0;
+                    satCellY = 0;
+                    satSumTable = Array(8).fill(0).map(() => Array(8).fill(0));
+                    satQueryRect = null;
+                    document.getElementById('visualizerOverlay').innerHTML = `
+                        <div>Algorithm: Summed-Area Table</div>
+                        <div>Calculated Cell: (0, 0)</div>
+                        <div>O(1) Formula: Waiting...</div>
+                    `;
+                    break;
+
+                case 5: // WebGL Rendering
+                    // Build a grid-based triangulated mesh that tiles the full 400x300 virtual canvas
+                    // then sample real pixel colors from testImage at each triangle centroid
+                    renderMeshTriangles = [];
+                    renderMeshIdx = 0;
+
+                    (function buildMesh() {
+                        // Create a grid of vertices over the virtual 400x300 space
+                        const cols = 8, rows = 6;
+                        const cw = 400 / cols, ch = 300 / rows;
+                        const verts = [];
+                        for (let row = 0; row <= rows; row++) {
+                            for (let col = 0; col <= cols; col++) {
+                                // Add slight jitter for more organic triangles
+                                const jx = (col > 0 && col < cols) ? (Math.random() - 0.5) * cw * 0.35 : 0;
+                                const jy = (row > 0 && row < rows) ? (Math.random() - 0.5) * ch * 0.35 : 0;
+                                verts.push([col * cw + jx, row * ch + jy]);
+                            }
+                        }
+                        // Build triangles from grid quads
+                        const stride = cols + 1;
+                        for (let row = 0; row < rows; row++) {
+                            for (let col = 0; col < cols; col++) {
+                                const tl = verts[row * stride + col];
+                                const tr = verts[row * stride + col + 1];
+                                const bl = verts[(row + 1) * stride + col];
+                                const br = verts[(row + 1) * stride + col + 1];
+                                // Two triangles per quad
+                                renderMeshTriangles.push({ pts: [tl, tr, br] });
+                                renderMeshTriangles.push({ pts: [tl, br, bl] });
+                            }
+                        }
+                        // Sample actual pixel color from testImage at each triangle centroid
+                        if (testImage) {
+                            const sampleCanvas = document.createElement('canvas');
+                            sampleCanvas.width = 400; sampleCanvas.height = 300;
+                            const sCtx = sampleCanvas.getContext('2d');
+                            sCtx.drawImage(testImage, 0, 0, 400, 300);
+                            renderMeshTriangles.forEach(t => {
+                                const cx = Math.round((t.pts[0][0] + t.pts[1][0] + t.pts[2][0]) / 3);
+                                const cy = Math.round((t.pts[0][1] + t.pts[1][1] + t.pts[2][1]) / 3);
+                                const px = sCtx.getImageData(
+                                    Math.max(0, Math.min(399, cx)),
+                                    Math.max(0, Math.min(299, cy)),
+                                    1, 1
+                                ).data;
+                                t.color = [px[0], px[1], px[2]];
+                            });
+                        } else {
+                            // Fallback gradient colors if no image
+                            renderMeshTriangles.forEach((t, i) => {
+                                const cx = (t.pts[0][0] + t.pts[1][0] + t.pts[2][0]) / 3;
+                                const cy = (t.pts[0][1] + t.pts[1][1] + t.pts[2][1]) / 3;
+                                t.color = [
+                                    Math.round(50 + (cx / 400) * 180),
+                                    Math.round(30 + (cy / 300) * 120),
+                                    Math.round(180 - (cx / 400) * 80)
+                                ];
+                            });
+                        }
+                    })();
+
+                    document.getElementById('visualizerOverlay').innerHTML = `
+                        <div>Algorithm: WebGL Renderer</div>
+                        <div>VBO: ${renderMeshTriangles.length * 3} vertices queued</div>
+                        <div>IBO: ${renderMeshTriangles.length} triangles queued</div>
+                    `;
+                    break;
+            }
+        }
+
+        function drawCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save();
+            // Scale drawing context from virtual 400x300 space to the actual canvas resolution
+            ctx.scale(canvas.width / 400, canvas.height / 300);
+
+            // Draw default background image lightly — skipped for K-Means (color space scatter)
+            // and SAT (clean numeric grid), and WebGL (handles its own image compositing)
+            if (testImage && currentTabIdx !== 0 && currentTabIdx !== 4 && currentTabIdx !== 5) {
+                ctx.globalAlpha = 0.15;
+                ctx.drawImage(testImage, 0, 0, 400, 300);
+                ctx.globalAlpha = 1.0;
+            }
+
+            switch (currentTabIdx) {
+                case 0: // K-Means swatch points & centroids
+                    // Draw grid lines in 400x300 coordinates
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+                    ctx.lineWidth = 1;
+                    for (let x = 0; x < 400; x += 40) {
+                        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 300); ctx.stroke();
+                    }
+                    for (let y = 0; y < 300; y += 40) {
+                        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(400, y); ctx.stroke();
+                    }
+
+                    // Draw points
+                    kmeansPoints.forEach(p => {
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+                        if (p.cluster !== -1) {
+                            const cc = kmeansCentroids[p.cluster].color;
+                            ctx.fillStyle = `rgb(${cc[0]}, ${cc[1]}, ${cc[2]})`;
+                        } else {
+                            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                        }
+                        ctx.fill();
+                    });
+
+                    // Draw centroids as larger circles with rings
+                    kmeansCentroids.forEach(c => {
+                        ctx.beginPath();
+                        ctx.arc(c.x, c.y, 8, 0, Math.PI * 2);
+                        ctx.fillStyle = `rgb(${c.color[0]}, ${c.color[1]}, ${c.color[2]})`;
+                        ctx.fill();
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
+
+                        ctx.beginPath();
+                        ctx.arc(c.x, c.y, 14, 0, Math.PI * 2);
+                        ctx.strokeStyle = `rgba(${c.color[0]}, ${c.color[1]}, ${c.color[2]}, 0.3)`;
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    });
+                    break;
+
+                case 1: // Canny (handled in changeCannyStep)
+                    break;
+
+                case 2: // Poisson Sampling
+                    // Draw actual image as a desaturated grayscale underlay to show where edges come from
+                    if (testImage) {
+                        ctx.save();
+                        ctx.filter = 'grayscale(100%) brightness(0.5) contrast(1.5)';
+                        ctx.globalAlpha = 0.4;
+                        ctx.drawImage(testImage, 0, 0, 400, 300);
+                        ctx.restore();
+                        // Bright edge highlight overlay (Canny-like effect via high-contrast)
+                        ctx.save();
+                        ctx.filter = 'grayscale(100%) invert(100%) contrast(4) brightness(0.6)';
+                        ctx.globalAlpha = 0.25;
+                        ctx.drawImage(testImage, 0, 0, 400, 300);
+                        ctx.restore();
+                    } else {
+                        // Fallback simulated edges when no image is loaded
+                        ctx.strokeStyle = 'rgba(6, 182, 212, 0.15)';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.arc(100, 100, 40, 0, Math.PI*2);
+                        ctx.arc(280, 160, 60, 0, Math.PI*2);
+                        ctx.moveTo(50, 220); ctx.lineTo(350, 220);
+                        ctx.stroke();
+                    }
+
+                    // Draw placed points on top of the image
+                    samplingPoints.forEach((p, idx) => {
+                        ctx.beginPath();
+                        ctx.arc(p[0], p[1], 3, 0, Math.PI * 2);
+                        ctx.fillStyle = p[2] === 'edge' ? '#06b6d4' : p[2] === 'corner' ? '#f59e0b' : '#c084fc';
+                        ctx.fill();
+
+                        // Highlight last placed point with poisson disc exclusion radius
+                        if (idx === samplingPoints.length - 1) {
+                            ctx.beginPath();
+                            ctx.arc(p[0], p[1], 22, 0, Math.PI * 2);
+                            ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
+                            ctx.fill();
+                            ctx.strokeStyle = '#38bdf8';
+                            ctx.lineWidth = 1;
+                            ctx.setLineDash([3, 3]);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                        }
+                    });
+                    break;
+
+                case 3: // Triangulation
+                    // Draw triangles
+                    ctx.strokeStyle = 'rgba(56, 189, 248, 0.3)';
+                    ctx.lineWidth = 1;
+                    delaunayTriangles.forEach(t => {
+                        ctx.beginPath();
+                        ctx.moveTo(t[0][0], t[0][1]);
+                        ctx.lineTo(t[1][0], t[1][1]);
+                        ctx.lineTo(t[2][0], t[2][1]);
+                        ctx.closePath();
+                        ctx.stroke();
+                    });
+
+                    // Draw circumcircle
+                    if (delaunayCircle) {
+                        ctx.save();
+                        ctx.setLineDash([4, 4]);
+                        ctx.strokeStyle = delaunayCircle.valid ? '#10b981' : '#ef4444';
+                        ctx.lineWidth = 1.5;
+                        ctx.beginPath();
+                        ctx.arc(delaunayCircle.cx, delaunayCircle.cy, delaunayCircle.r, 0, Math.PI * 2);
+                        ctx.stroke();
+
+                        ctx.fillStyle = delaunayCircle.valid ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+                        ctx.fill();
+                        ctx.restore();
+                    }
+
+                    // Highlight flipped edges
+                    ctx.strokeStyle = '#ec4899';
+                    ctx.lineWidth = 2;
+                    delaunayFlips.forEach(e => {
+                        ctx.beginPath();
+                        ctx.moveTo(e[0][0], e[0][1]);
+                        ctx.lineTo(e[1][0], e[1][1]);
+                        ctx.stroke();
+                    });
+
+                    // Draw points
+                    for (let i = 0; i < animStepIdx; i++) {
+                        if (i >= delaunayPoints.length) break;
+                        const p = delaunayPoints[i];
+                        ctx.beginPath();
+                        ctx.arc(p[0], p[1], 4, 0, Math.PI * 2);
+                        ctx.fillStyle = '#c084fc';
+                        ctx.fill();
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.stroke();
+                    }
+                    break;
+
+                case 4: // SAT grid (centered)
+                    const cellSize = 30;
+                    const ox = (400 - 8 * cellSize) / 2;
+                    const oy = (300 - 8 * cellSize) / 2;
+
+                    // Draw pixels
+                    for (let y = 0; y < 8; y++) {
+                        for (let x = 0; x < 8; x++) {
+                            const val = Math.floor(40 + (x + y * 2) * 10);
+                            ctx.fillStyle = `rgb(${val}, ${val + 10}, ${val + 30})`;
+                            ctx.fillRect(ox + x * cellSize, oy + y * cellSize, cellSize - 1, cellSize - 1);
+                            
+                            // Text value inside pixel
+                            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                            ctx.font = '8px monospace';
+                            ctx.fillText((x+y).toString(), ox + x * cellSize + 4, oy + y * cellSize + 10);
+
+                            // Draw calculated SAT value
+                            if (satSumTable[y][x] > 0) {
+                                ctx.fillStyle = '#38bdf8';
+                                ctx.font = '10px monospace';
+                                ctx.fillText(satSumTable[y][x].toString(), ox + x * cellSize + 4, oy + y * cellSize + 22);
+                            }
+                        }
+                    }
+
+                    // Draw query rectangle overlay
+                    if (satQueryRect) {
+                        const r = satQueryRect;
+                        ctx.strokeStyle = '#10b981';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(ox + r.x1 * cellSize, oy + r.y1 * cellSize, (r.x2 - r.x1 + 1) * cellSize, (r.y2 - r.y1 + 1) * cellSize);
+
+                        // Highlight the 4 corner lookup cells
+                        const corners = [
+                            { x: r.x2, y: r.y2, color: '#ef4444', name: 'BR' },
+                            { x: r.x1 - 1, y: r.y1 - 1, color: '#10b981', name: 'TL' },
+                            { x: r.x2, y: r.y1 - 1, color: '#f59e0b', name: 'TR' },
+                            { x: r.x1 - 1, y: r.y2, color: '#f59e0b', name: 'BL' }
+                        ];
+
+                        corners.forEach(c => {
+                            if (c.x >= 0 && c.y >= 0) {
+                                ctx.fillStyle = c.color;
+                                ctx.fillRect(ox + c.x * cellSize + 1, oy + c.y * cellSize + 1, cellSize - 3, cellSize - 3);
+                                ctx.fillStyle = '#080c14';
+                                ctx.font = '9px monospace';
+                                ctx.fillText(c.name, ox + c.x * cellSize + 5, oy + c.y * cellSize + 18);
+                            }
+                        });
+                    }
+                    break;
+
+                case 5: // WebGL Rendering — incremental triangle draw (image-sampled colors)
+                    // Step 1: draw the actual image faintly as context
+                    if (testImage) {
+                        ctx.globalAlpha = 0.18;
+                        ctx.drawImage(testImage, 0, 0, 400, 300);
+                        ctx.globalAlpha = 1.0;
+                    }
+
+                    // Step 2: Fill revealed triangles with sampled colors
+                    for (let i = 0; i < renderMeshIdx; i++) {
+                        const t = renderMeshTriangles[i];
+                        if (!t || !t.color) continue;
+                        ctx.beginPath();
+                        ctx.moveTo(t.pts[0][0], t.pts[0][1]);
+                        ctx.lineTo(t.pts[1][0], t.pts[1][1]);
+                        ctx.lineTo(t.pts[2][0], t.pts[2][1]);
+                        ctx.closePath();
+                        ctx.fillStyle = `rgb(${t.color[0]}, ${t.color[1]}, ${t.color[2]})`;
+                        ctx.fill();
+                        ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+                        ctx.lineWidth = 0.5;
+                        ctx.stroke();
+                    }
+
+                    // Step 3: Highlight the currently being-drawn triangle in bright cyan
+                    if (renderMeshIdx > 0 && renderMeshIdx <= renderMeshTriangles.length) {
+                        const cur = renderMeshTriangles[renderMeshIdx - 1];
+                        if (cur) {
+                            ctx.beginPath();
+                            ctx.moveTo(cur.pts[0][0], cur.pts[0][1]);
+                            ctx.lineTo(cur.pts[1][0], cur.pts[1][1]);
+                            ctx.lineTo(cur.pts[2][0], cur.pts[2][1]);
+                            ctx.closePath();
+                            ctx.strokeStyle = '#38bdf8';
+                            ctx.lineWidth = 1.5;
+                            ctx.stroke();
+                        }
+                    }
+
+                    // Step 4: GPU info strip pinned at bottom of virtual canvas (below triangles)
+                    ctx.fillStyle = 'rgba(8, 12, 24, 0.82)';
+                    ctx.fillRect(0, 268, 400, 32);
+                    ctx.fillStyle = '#38bdf8';
+                    ctx.font = 'bold 8px monospace';
+                    ctx.fillText('VBO →', 6, 281);
+                    ctx.fillStyle = '#c084fc';
+                    ctx.fillText('IBO →', 6, 292);
+                    ctx.fillStyle = '#9ca3af';
+                    ctx.font = '8px monospace';
+                    const pct = renderMeshTriangles.length > 0 ? Math.round((renderMeshIdx / renderMeshTriangles.length) * 100) : 0;
+                    ctx.fillText(`gl.drawElements() — ${renderMeshIdx}/${renderMeshTriangles.length} tris (${pct}%)`, 48, 281);
+                    ctx.fillText(`Vertex shader → Rasterizer → Fragment shader`, 48, 292);
+                    break;
+            }
+
+            ctx.restore();
+        }
+
+        // Execute step in animation
+        function executeAnimStep() {
+            animStepIdx++;
+
+            switch (currentTabIdx) {
+                case 0: // K-Means Step-through
+                    const kStep = animStepIdx % 4;
+                    if (kStep === 1) { // Centroid assignment
+                        highlightCodeLine(6);
+                        kmeansPoints.forEach(p => {
+                            let minDist = Infinity;
+                            let bestCluster = -1;
+                            kmeansCentroids.forEach((c, idx) => {
+                                const dist = (p.x - c.x)**2 + (p.y - c.y)**2;
+                                if (dist < minDist) {
+                                    minDist = dist;
+                                    bestCluster = idx;
+                                }
+                            });
+                            p.cluster = bestCluster;
+                        });
+                        document.getElementById('visualizerOverlay').innerHTML = `
+                            <div>Algorithm: K-Means</div>
+                            <div>Iteration: ${Math.floor(animStepIdx/4) + 1}</div>
+                            <div>Status: Centroid Assignment</div>
+                        `;
+                    } else if (kStep === 2) { // Centroid update
+                        highlightCodeLine(9);
+                        kmeansOldCentroids = kmeansCentroids.map(c => ({...c}));
+                        kmeansCentroids.forEach((c, idx) => {
+                            const pts = kmeansPoints.filter(p => p.cluster === idx);
+                            if (pts.length > 0) {
+                                const mx = pts.reduce((sum, p) => sum + p.x, 0) / pts.length;
+                                const my = pts.reduce((sum, p) => sum + p.y, 0) / pts.length;
+                                c.x = Math.round(mx);
+                                c.y = Math.round(my);
+                            }
+                        });
+                        document.getElementById('visualizerOverlay').innerHTML = `
+                            <div>Algorithm: K-Means</div>
+                            <div>Iteration: ${Math.floor(animStepIdx/4) + 1}</div>
+                            <div>Status: Updating Centroids</div>
+                        `;
+                    } else if (kStep === 3) { // Variance calc
+                        highlightCodeLine(11);
+                        kmeansVariance = 0;
+                        kmeansPoints.forEach(p => {
+                            if (p.cluster !== -1) {
+                                const c = kmeansCentroids[p.cluster];
+                                kmeansVariance += (p.x - c.x)**2 + (p.y - c.y)**2;
+                            }
+                        });
+                        document.getElementById('visualizerOverlay').innerHTML = `
+                            <div>Algorithm: K-Means</div>
+                            <div>Iteration: ${Math.floor(animStepIdx/4) + 1}</div>
+                            <div>WCSS Variance: ${Math.round(kmeansVariance)}</div>
+                        `;
+                    } else { // Check convergence
+                        highlightCodeLine(12);
+                        let converged = true;
+                        if (kmeansOldCentroids.length > 0) {
+                            for (let i = 0; i < kmeansCentroids.length; i++) {
+                                const dist = (kmeansCentroids[i].x - kmeansOldCentroids[i].x)**2 + (kmeansCentroids[i].y - kmeansOldCentroids[i].y)**2;
+                                if (dist > 1.5) converged = false;
+                            }
+                        } else {
+                            converged = false;
+                        }
+
+                        if (converged || animStepIdx > kmeansMaxIterations * 4) {
+                            pauseAnim();
+                            animState = 'done';
+                            highlightCodeLine(14);
+                            document.getElementById('visualizerOverlay').innerHTML = `
+                                <div>Algorithm: K-Means</div>
+                                <div>Status: Converged!</div>
+                                <div>WCSS Variance: ${Math.round(kmeansVariance)}</div>
+                            `;
+                        }
+                    }
+                    drawCanvas();
+                    break;
+
+                case 2: // Sampling Step
+                    const edgePoints = [
+                        [100, 60, 'edge'], [140, 100, 'edge'], [100, 140, 'edge'], [60, 100, 'edge'],
+                        [220, 160, 'edge'], [340, 160, 'edge'], [280, 100, 'edge'], [280, 220, 'edge']
+                    ];
+                    const randomPoints = [
+                        [180, 50, 'random'], [200, 250, 'random'], [150, 180, 'random'], [300, 60, 'random']
+                    ];
+
+                    if (animStepIdx <= edgePoints.length) {
+                        highlightCodeLine(3); // spacing check
+                        const p = edgePoints[animStepIdx - 1];
+                        samplingPoints.push(p);
+                        document.getElementById('visualizerOverlay').innerHTML = `
+                            <div>Algorithm: Point Sampler</div>
+                            <div>Points Placed: ${samplingPoints.length}</div>
+                            <div>Type: Boundary (Canny)</div>
+                        `;
+                    } else if (animStepIdx <= edgePoints.length + randomPoints.length) {
+                        highlightCodeLine(7); // Random interior sampling
+                        const p = randomPoints[animStepIdx - edgePoints.length - 1];
+                        samplingPoints.push(p);
+                        document.getElementById('visualizerOverlay').innerHTML = `
+                            <div>Algorithm: Point Sampler</div>
+                            <div>Points Placed: ${samplingPoints.length}</div>
+                            <div>Type: Random Interior</div>
+                        `;
+                    } else {
+                        highlightCodeLine(8); // corners
+                        // Use virtual 400x300 coordinate space (not raw canvas pixels)
+                        samplingPoints.push(
+                            [2, 2, 'corner'], [2, 298, 'corner'],
+                            [398, 2, 'corner'], [398, 298, 'corner']
+                        );
+                        pauseAnim();
+                        animState = 'done';
+                        highlightCodeLine(10);
+                        document.getElementById('visualizerOverlay').innerHTML = `
+                            <div>Algorithm: Point Sampler</div>
+                            <div>Points Placed: ${samplingPoints.length}</div>
+                            <div>Status: Complete &#10003;</div>
+                        `;
+                    }
+                    drawCanvas();
+                    break;
+
+                case 3: // Triangulation Step — Bowyer-Watson walkthrough
+                    // Uses the 13-point set spread across the full 400x300 virtual canvas
+                    if (animStepIdx === 1) {
+                        highlightCodeLine(1); // super triangle
+                        // Initial super-triangle covering whole canvas
+                        delaunayTriangles = [
+                            [[-50, -50], [850, -50], [200, 650]]
+                        ];
+                        document.getElementById('visualizerOverlay').innerHTML = `
+                            <div>Algorithm: Triangulation</div>
+                            <div>Step 1: Super-triangle inserted</div>
+                            <div>Triangles: 1</div>
+                        `;
+                    } else if (animStepIdx === 2) {
+                        highlightCodeLine(3); // circumcircle test
+                        // Show circumcircle of first inserted point
+                        delaunayCircle = { cx: 200, cy: 10, r: 220, valid: true };
+                        document.getElementById('visualizerOverlay').innerHTML = `
+                            <div>Algorithm: Triangulation</div>
+                            <div>Step 2: Circumcircle test (empty = valid)</div>
+                            <div>Check: No points inside circle &#10003;</div>
+                        `;
+                    } else if (animStepIdx === 3) {
+                        highlightCodeLine(6); // triangulate cavity
+                        delaunayCircle = null;
+                        delaunayTriangles = [
+                            [[20, 20], [200, 15], [380, 20]],
+                            [[20, 20], [200, 15], [20, 150]],
+                            [[200, 15], [380, 20], [380, 140]]
+                        ];
+                        document.getElementById('visualizerOverlay').innerHTML = `
+                            <div>Algorithm: Triangulation</div>
+                            <div>Step 3: First 3 points inserted</div>
+                            <div>Triangles: ${delaunayTriangles.length}</div>
+                        `;
+                    } else if (animStepIdx === 4) {
+                        highlightCodeLine(7); // next point — invalid circumcircle
+                        delaunayCircle = { cx: 200, cy: 150, r: 130, valid: false };
+                        document.getElementById('visualizerOverlay').innerHTML = `
+                            <div>Algorithm: Triangulation</div>
+                            <div>Step 4: Point inside circumcircle!</div>
+                            <div>&#9888; Edge flip required</div>
+                        `;
+                    } else if (animStepIdx === 5) {
+                        highlightCodeLine(9); // edge flip
+                        delaunayCircle = null;
+                        delaunayFlips = [
+                            [[130, 100], [200, 15]] // flipped edge highlighted
+                        ];
+                        delaunayTriangles = [
+                            [[20, 20], [200, 15], [380, 20]],
+                            [[20, 20], [130, 100], [20, 150]],
+                            [[200, 15], [380, 20], [270, 90]],
+                            [[20, 20], [200, 15], [130, 100]]
+                        ];
+                        document.getElementById('visualizerOverlay').innerHTML = `
+                            <div>Algorithm: Triangulation</div>
+                            <div>Step 5: Edge flipped (Delaunay restored)</div>
+                            <div>Triangles: ${delaunayTriangles.length}</div>
+                        `;
+                    } else if (animStepIdx === 6) {
+                        delaunayFlips = [];
+                        delaunayTriangles = [
+                            [[20, 20], [200, 15], [380, 20]],
+                            [[20, 20], [130, 100], [20, 150]],
+                            [[200, 15], [270, 90], [380, 20]],
+                            [[20, 20], [200, 15], [130, 100]],
+                            [[270, 90], [380, 20], [380, 140]],
+                            [[130, 100], [270, 90], [160, 190]],
+                            [[20, 150], [130, 100], [80, 280]],
+                            [[130, 100], [160, 190], [80, 280]],
+                            [[160, 190], [200, 260], [80, 280]],
+                            [[160, 190], [270, 90], [300, 200]],
+                            [[270, 90], [380, 140], [300, 200]],
+                            [[300, 200], [380, 140], [380, 280]],
+                            [[200, 260], [300, 200], [320, 280]],
+                            [[80, 280], [200, 260], [320, 280]]
+                        ];
+                        document.getElementById('visualizerOverlay').innerHTML = `
+                            <div>Algorithm: Triangulation</div>
+                            <div>All 13 points processed &#10003;</div>
+                            <div>Triangles: ${delaunayTriangles.length}</div>
+                        `;
+                    } else {
+                        pauseAnim();
+                        animState = 'done';
+                        document.getElementById('visualizerOverlay').innerHTML = `
+                            <div>Algorithm: Triangulation</div>
+                            <div>Vertices: 13 | Triangles: 14</div>
+                            <div>Status: Complete &#10003;</div>
+                        `;
+                    }
+                    drawCanvas();
+                    break;
+
+                case 4: // SAT Step
+                    if (satCellY < 8) {
+                        highlightCodeLine(4);
+                        // Calculate SAT value for (satCellX, satCellY)
+                        let val = satCellX + satCellY; // pixel value approximation
+                        let above = satCellY > 0 ? satSumTable[satCellY - 1][satCellX] : 0;
+                        let left = satCellX > 0 ? satSumTable[satCellY][satCellX - 1] : 0;
+                        let aboveLeft = (satCellX > 0 && satCellY > 0) ? satSumTable[satCellY - 1][satCellX - 1] : 0;
+                        satSumTable[satCellY][satCellX] = val + above + left - aboveLeft;
+
+                        document.getElementById('visualizerOverlay').innerHTML = `
+                            <div>Algorithm: Summed-Area Table</div>
+                            <div>Calculated Cell: (${satCellX}, ${satCellY})</div>
+                            <div>Formula: SAT[x][y] = p + A + L - AL</div>
+                        `;
+
+                        // Next cell
+                        satCellX++;
+                        if (satCellX >= 8) {
+                            satCellX = 0;
+                            satCellY++;
+                        }
+                    } else if (animStepIdx === 65) {
+                        highlightCodeLine(8); // O(1) query start
+                        satQueryRect = { x1: 2, y1: 2, x2: 5, y2: 5 };
+                        document.getElementById('visualizerOverlay').innerHTML = `
+                            <div>Algorithm: Summed-Area Table</div>
+                            <div>Status: Query O(1) Area Sum</div>
+                        `;
+                    } else if (animStepIdx === 66) {
+                        highlightCodeLine(10); // query formula
+                        const r = satQueryRect;
+                        const br = satSumTable[r.y2][r.x2];
+                        const tl = satSumTable[r.y1 - 1][r.x1 - 1];
+                        const tr = satSumTable[r.y1 - 1][r.x2];
+                        const bl = satSumTable[r.y2][r.x1 - 1];
+                        const sum = br + tl - tr - bl;
+                        const area = (r.x2 - r.x1 + 1) * (r.y2 - r.y1 + 1);
+                        const avg = (sum / area).toFixed(2);
+
+                        document.getElementById('visualizerOverlay').innerHTML = `
+                            <div>Inclusion-Exclusion Query:</div>
+                            <div>BR(${br}) + TL(${tl}) - TR(${tr}) - BL(${bl})</div>
+                            <div>Sum = ${sum} | Area = ${area} | Avg = ${avg}</div>
+                        `;
+                        pauseAnim();
+                        animState = 'done';
+                    }
+                    drawCanvas();
+                    break;
+
+                case 5: // WebGL Rendering Step
+                    if (renderMeshIdx < renderMeshTriangles.length) {
+                        // Reveal triangles in batches for fluid animation (4 per step)
+                        const batchSize = Math.max(1, Math.floor(renderMeshTriangles.length / 24));
+                        renderMeshIdx = Math.min(renderMeshIdx + batchSize, renderMeshTriangles.length);
+                        highlightCodeLine(8); // gl.drawElements
+                        document.getElementById('visualizerOverlay').innerHTML = `
+                            <div>Algorithm: WebGL Renderer</div>
+                            <div>Triangles drawn: ${renderMeshIdx} / ${renderMeshTriangles.length}</div>
+                            <div>GPU call: gl.drawElements(TRIANGLES, ${renderMeshIdx * 3}, ...)</div>
+                        `;
+                    } else {
+                        document.getElementById('visualizerOverlay').innerHTML = `
+                            <div>Algorithm: WebGL Renderer</div>
+                            <div>&#10003; Render complete — ${renderMeshTriangles.length} triangles</div>
+                            <div>Low-poly art: Final frame</div>
+                        `;
+                        pauseAnim();
+                        animState = 'done';
+                    }
+                    drawCanvas();
+                    break;
+            }
+        }
+
+        // Canny step changer (Visualizer mode for Canny)
+        function changeCannyStep(stepVal) {
+            const stepNum = parseInt(stepVal);
+            const stepNames = [
+                "Stage 1: Grayscale Luminance Image",
+                "Stage 2: Gaussian Blur (5x5) Noise Cleaning",
+                "Stage 3: Sobel Gradient Direction & Magnitude",
+                "Stage 4: Non-Maximum Suppression (Boundary thinning)",
+                "Stage 5: Double Thresholding (Strong/Weak edges classification)",
+                "Stage 6: Hysteresis Linkage Edge Tracking"
+            ];
+            
+            document.getElementById('cannyStepName').innerText = stepNames[stepNum - 1];
+            highlightCodeLine(stepNum + 1);
+
+            // Re-render simulated Canny canvas state
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw background based on stage
+            if (testImage) {
+                if (stepNum === 1) {
+                    // Gray - direct pixel copy to full canvas size
+                    ctx.drawImage(testImage, 0, 0, canvas.width, canvas.height);
+                    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const d = imgData.data;
+                    for (let i = 0; i < d.length; i += 4) {
+                        const gray = (d[i] + d[i+1] + d[i+2])/3;
+                        d[i] = gray; d[i+1] = gray; d[i+2] = gray;
+                    }
+                    ctx.putImageData(imgData, 0, 0);
+                } else if (stepNum === 2) {
+                    // Blur - draw image to full canvas size with blur filter
+                    ctx.save();
+                    ctx.filter = 'blur(3px)';
+                    ctx.drawImage(testImage, 0, 0, canvas.width, canvas.height);
+                    ctx.restore();
+                } else {
+                    // For steps 3 to 6, scale drawing coordinates from virtual 400x300 space to the actual canvas resolution
+                    ctx.save();
+                    ctx.scale(canvas.width / 400, canvas.height / 300);
+
+                    // Draw default background image lightly in virtual space
+                    ctx.globalAlpha = 0.15;
+                    ctx.drawImage(testImage, 0, 0, 400, 300);
+                    ctx.globalAlpha = 1.0;
+
+                    if (stepNum === 3) {
+                        // Sobel
+                        ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0,0,400,300);
+                        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+                        ctx.beginPath(); ctx.arc(100, 100, 40, 0, Math.PI*2); ctx.arc(280, 160, 60, 0, Math.PI*2); ctx.stroke();
+                    } else if (stepNum === 4) {
+                        // Non-max suppression
+                        ctx.fillStyle = '#020306'; ctx.fillRect(0,0,400,300);
+                        ctx.strokeStyle = '#cccccc'; ctx.lineWidth = 1;
+                        ctx.beginPath(); ctx.arc(100, 100, 40, 0, Math.PI*2); ctx.arc(280, 160, 60, 0, Math.PI*2); ctx.stroke();
+                    } else if (stepNum === 5) {
+                        // Double Threshold
+                        ctx.fillStyle = '#020306'; ctx.fillRect(0,0,400,300);
+                        ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
+                        ctx.beginPath(); ctx.arc(100, 100, 40, 0, Math.PI*2); ctx.stroke(); // weak edge
+                        ctx.strokeStyle = '#06b6d4'; ctx.lineWidth = 2;
+                        ctx.beginPath(); ctx.arc(280, 160, 60, 0, Math.PI*2); ctx.stroke(); // strong edge
+                    } else {
+                        // Hysteresis link
+                        ctx.fillStyle = '#020306'; ctx.fillRect(0,0,400,300);
+                        ctx.strokeStyle = '#06b6d4'; ctx.lineWidth = 2;
+                        ctx.beginPath(); ctx.arc(100, 100, 40, 0, Math.PI*2); ctx.arc(280, 160, 60, 0, Math.PI*2); ctx.stroke();
+                    }
+                    ctx.restore();
+                }
+            }
+
+            document.getElementById('visualizerOverlay').innerHTML = `
+                <div>Algorithm: Canny Filter</div>
+                <div>Filter Step: ${stepNum} / 6</div>
+                <div>Status: Active</div>
+            `;
+        }
+
+        function loadSharedImage() {
+            const savedImgData = localStorage.getItem('delaunay_user_image');
+            if (savedImgData) {
+                const img = new Image();
+                img.onload = () => {
+                    testImage = img;
+                    
+                    // Set canvas dimension based on image aspect ratio, width 800 for sharpness
+                    const aspect = img.width / img.height;
+                    canvas.width = 800;
+                    canvas.height = Math.round(800 / aspect);
+                    
+                    resetAnim();
+                };
+                img.src = savedImgData;
+                return true;
+            }
+            return false;
+        }
+
+        // DOM startup setup
+        window.addEventListener('DOMContentLoaded', () => {
+            canvas = document.getElementById('explorerCanvas');
+            ctx = canvas.getContext('2d');
+
+            if (!loadSharedImage()) {
+                // Generate an aesthetic demo artwork background
+                canvas.width = 400;
+                canvas.height = 400; // default 1:1 square aspect ratio
+
+                const sz = 400;
+                const buf = document.createElement('canvas');
+                buf.width = sz; buf.height = sz;
+                const bCtx = buf.getContext('2d');
+
+                const grad = bCtx.createLinearGradient(0, 0, sz, sz);
+                grad.addColorStop(0, '#090d16');
+                grad.addColorStop(0.5, '#312e81');
+                grad.addColorStop(1, '#581c87');
+                bCtx.fillStyle = grad;
+                bCtx.fillRect(0, 0, sz, sz);
+
+                bCtx.fillStyle = 'rgba(236, 72, 153, 0.4)';
+                bCtx.beginPath(); bCtx.arc(sz * 0.35, sz * 0.35, sz * 0.25, 0, Math.PI * 2); bCtx.fill();
+
+                bCtx.fillStyle = 'rgba(6, 182, 212, 0.4)';
+                bCtx.beginPath(); bCtx.arc(sz * 0.7, sz * 0.65, sz * 0.25, 0, Math.PI * 2); bCtx.fill();
+
+                testImage = new Image();
+                testImage.onload = () => {
+                    switchTab(0);
+                };
+                testImage.src = buf.toDataURL();
+            }
+
+            // Sync with uploads in the Interactive Studio tab
+            window.addEventListener('storage', (e) => {
+                if (e.key === 'delaunay_user_image') {
+                    loadSharedImage();
+                }
+            });
+        });
+
+        // Interactive SAT Heatmap Logic
+        let isDraggingSAT = false;
+        let satDragStartX = 0;
+        let satDragStartY = 0;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initAlgorithms();
+            
+            const canvas = document.getElementById('explorerCanvas');
+            
+            canvas.addEventListener('mousedown', (e) => {
+                if (currentTabIdx === 4 && animState === 'done') {
+                    const rect = canvas.getBoundingClientRect();
+                    const scaleX = canvas.width / rect.width;
+                    const scaleY = canvas.height / rect.height;
+                    const mouseX = (e.clientX - rect.left) * scaleX;
+                    const mouseY = (e.clientY - rect.top) * scaleY;
+                    
+                    const cellSize = 30;
+                    const ox = (canvas.width - 8 * cellSize) / 2;
+                    const oy = (canvas.height - 8 * cellSize) / 2;
+                    
+                    const cellX = Math.floor((mouseX - ox) / cellSize);
+                    const cellY = Math.floor((mouseY - oy) / cellSize);
+                    
+                    if (cellX >= 1 && cellX < 8 && cellY >= 1 && cellY < 8) {
+                        isDraggingSAT = true;
+                        satDragStartX = cellX;
+                        satDragStartY = cellY;
+                        satQueryRect = { x1: cellX, y1: cellY, x2: cellX, y2: cellY };
+                        updateInteractiveSATOverlay();
+                        drawCanvas();
+                    }
+                }
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                if (isDraggingSAT && currentTabIdx === 4 && animState === 'done') {
+                    const rect = canvas.getBoundingClientRect();
+                    const scaleX = canvas.width / rect.width;
+                    const scaleY = canvas.height / rect.height;
+                    const mouseX = (e.clientX - rect.left) * scaleX;
+                    const mouseY = (e.clientY - rect.top) * scaleY;
+                    
+                    const cellSize = 30;
+                    const ox = (canvas.width - 8 * cellSize) / 2;
+                    const oy = (canvas.height - 8 * cellSize) / 2;
+                    
+                    const cellX = Math.floor((mouseX - ox) / cellSize);
+                    const cellY = Math.floor((mouseY - oy) / cellSize);
+                    
+                    if (cellX >= 1 && cellX < 8 && cellY >= 1 && cellY < 8) {
+                        satQueryRect = {
+                            x1: Math.min(satDragStartX, cellX),
+                            y1: Math.min(satDragStartY, cellY),
+                            x2: Math.max(satDragStartX, cellX),
+                            y2: Math.max(satDragStartY, cellY)
+                        };
+                        updateInteractiveSATOverlay();
+                        drawCanvas();
+                    }
+                }
+            });
+
+            window.addEventListener('mouseup', () => {
+                isDraggingSAT = false;
+            });
+            
+            function updateInteractiveSATOverlay() {
+                const r = satQueryRect;
+                if (!r) return;
+                const br = satSumTable[r.y2][r.x2];
+                const tl = satSumTable[r.y1 - 1][r.x1 - 1];
+                const tr = satSumTable[r.y1 - 1][r.x2];
+                const bl = satSumTable[r.y2][r.x1 - 1];
+                const sum = br + tl - tr - bl;
+                const area = (r.x2 - r.x1 + 1) * (r.y2 - r.y1 + 1);
+                const avg = (sum / area).toFixed(2);
+                
+                document.getElementById('visualizerOverlay').innerHTML = `
+                    <div style="color: #fcd34d; font-weight: bold; margin-bottom:4px;">✨ Interactive Heatmap Query Mode</div>
+                    <div>Inclusion-Exclusion Formula:</div>
+                    <div>BR(${br}) + TL(${tl}) - TR(${tr}) - BL(${bl})</div>
+                    <div>Sum = ${sum} | Area = ${area} | <span style="color:#10b981">Avg = ${avg}</span></div>
+                `;
+            }
+        });
+
+        // ═══════════════════════════════════════════════
+        // LocalStorage fallback for demo images
+        // ═══════════════════════════════════════════════
+        if (typeof(Storage) !== "undefined") {
+            window.addEventListener('storage', (e) => {
+                if (e.key === 'shared_demo_image_url') {
+                    // Could hot-reload if needed
+                }
+            });
+        }
+    </script>
+</body>
+</html>

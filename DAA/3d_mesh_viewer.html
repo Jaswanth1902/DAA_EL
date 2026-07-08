@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delaunay 3D Mesh Topology Viewer</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <!-- Three.js and OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        :root {
+            --bg-color: #080c14;
+            --text-color: #f3f4f6;
+            --accent-gradient: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-color); overflow: hidden; }
+        
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            width: 320px;
+            pointer-events: auto;
+        }
+
+        h1 { font-size: 1.2rem; font-weight: 800; margin-bottom: 0.5rem; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        p { font-size: 0.85rem; color: #9ca3af; margin-bottom: 1.5rem; line-height: 1.4; }
+        
+        .control-group { margin-bottom: 1rem; }
+        label { display: block; font-size: 0.8rem; font-weight: 600; color: #38bdf8; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 1px; }
+        
+        input[type="range"] { width: 100%; accent-color: #818cf8; }
+        
+        .upload-btn {
+            display: inline-block;
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid #38bdf8;
+            color: #38bdf8;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: center;
+            width: 100%;
+            transition: all 0.2s;
+        }
+        .upload-btn:hover { background: #38bdf8; color: #080c14; }
+        
+        #nav-link {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #9ca3af;
+            text-decoration: none;
+            font-size: 0.9rem;
+            z-index: 10;
+        }
+        #nav-link:hover { color: #fff; }
+        
+        .loading {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            display: none;
+            z-index: 20;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui-layer">
+        <h1>3D Topology Viewer</h1>
+        <p>Visualizing Delaunay structural density. Height (Z-axis) represents the region's luminosity intensity.</p>
+        
+        <div class="control-group">
+            <label for="heightScale">Extrusion Height Multiplier</label>
+            <input type="range" id="heightScale" min="0" max="200" value="50">
+        </div>
+        
+        <div class="control-group">
+            <label for="wireframeToggle">Wireframe Mode</label>
+            <input type="checkbox" id="wireframeToggle">
+        </div>
+        
+        <div class="control-group" style="margin-top: 1.5rem;">
+            <label>Load Custom JSON Output</label>
+            <label for="fileUpload" class="upload-btn">Upload JSON File</label>
+            <input type="file" id="fileUpload" accept=".json" style="display: none;">
+        </div>
+    </div>
+    
+    <a href="index.html" id="nav-link">← Back to Studio</a>
+    <div id="loading" class="loading">Generating 3D Mesh...</div>
+
+    <script>
+        let scene, camera, renderer, controls;
+        let currentMesh = null;
+        let baseGeometry = null;
+        let trianglesData = [];
+        let heightMultiplier = 50;
+
+        init();
+        animate();
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x080c14, 0.002);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000);
+            camera.position.set(0, -600, 800);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x080c14, 1);
+            document.body.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(1000, 1000, 1000);
+            scene.add(dirLight);
+            
+            const backLight = new THREE.DirectionalLight(0x38bdf8, 0.5);
+            backLight.position.set(-1000, -1000, 500);
+            scene.add(backLight);
+
+            // Listeners
+            window.addEventListener('resize', onWindowResize);
+            document.getElementById('heightScale').addEventListener('input', (e) => {
+                heightMultiplier = parseFloat(e.target.value);
+                updateMeshGeometry();
+            });
+            document.getElementById('wireframeToggle').addEventListener('change', (e) => {
+                if (currentMesh) {
+                    currentMesh.material.wireframe = e.target.checked;
+                }
+            });
+            document.getElementById('fileUpload').addEventListener('change', handleFileUpload);
+
+            // Try loading default JSON if available
+            loadDefaultJSON();
+        }
+
+        function loadDefaultJSON() {
+            document.getElementById('loading').style.display = 'block';
+            fetch('test_output.json')
+                .then(response => {
+                    if(!response.ok) throw new Error("Not found");
+                    return response.json();
+                })
+                .then(data => {
+                    buildMesh(data);
+                })
+                .catch(err => {
+                    console.log("Default JSON not found, trying another...");
+                    fetch('test_saliency_out.json')
+                        .then(res => res.json())
+                        .then(data => buildMesh(data))
+                        .catch(e => {
+                            document.getElementById('loading').style.display = 'none';
+                            console.log("No default JSON available. Please upload one.");
+                        });
+                });
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            document.getElementById('loading').style.display = 'block';
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    buildMesh(data);
+                } catch(err) {
+                    alert("Invalid JSON file.");
+                    document.getElementById('loading').style.display = 'none';
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function getLuminance(r, g, b) {
+            return 0.2126 * (r/255) + 0.7152 * (g/255) + 0.0722 * (b/255);
+        }
+
+        function buildMesh(data) {
+            trianglesData = data;
+            
+            if (currentMesh) {
+                scene.remove(currentMesh);
+                baseGeometry.dispose();
+            }
+
+            // Calculate center to align mesh at origin
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            for (let i = 0; i < data.length; i++) {
+                const pts = data[i][0];
+                for(let j=0; j<3; j++) {
+                    minX = Math.min(minX, pts[j][0]);
+                    maxX = Math.max(maxX, pts[j][0]);
+                    minY = Math.min(minY, pts[j][1]);
+                    maxY = Math.max(maxY, pts[j][1]);
+                }
+            }
+            
+            const cx = (minX + maxX) / 2;
+            const cy = (minY + maxY) / 2;
+
+            baseGeometry = new THREE.BufferGeometry();
+            
+            const vertices = [];
+            const colors = [];
+            const indices = [];
+            
+            // Generate flat vertices first
+            let vertexIndex = 0;
+            for (let i = 0; i < data.length; i++) {
+                const pts = data[i][0]; // [[x,y], [x,y], [x,y]]
+                const col = data[i][1]; // [b, g, r] from OpenCV
+                
+                // Swap BGR to RGB
+                const r = col[2];
+                const g = col[1];
+                const b = col[0];
+                
+                const lum = getLuminance(r, g, b);
+                const colorObj = new THREE.Color(`rgb(${Math.floor(r)},${Math.floor(g)},${Math.floor(b)})`);
+                
+                for (let j = 0; j < 3; j++) {
+                    // X, Y, baseZ
+                    // Invert Y so image is upright
+                    vertices.push(pts[j][0] - cx, -(pts[j][1] - cy), lum); 
+                    colors.push(colorObj.r, colorObj.g, colorObj.b);
+                    indices.push(vertexIndex++);
+                }
+            }
+
+            baseGeometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            baseGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            baseGeometry.setIndex(indices);
+            
+            updateMeshGeometry(); // Applies height scale
+
+            const material = new THREE.MeshStandardMaterial({
+                vertexColors: true,
+                side: THREE.DoubleSide,
+                roughness: 0.6,
+                metalness: 0.1,
+                wireframe: document.getElementById('wireframeToggle').checked
+            });
+
+            currentMesh = new THREE.Mesh(baseGeometry, material);
+            scene.add(currentMesh);
+            
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function updateMeshGeometry() {
+            if (!baseGeometry) return;
+            
+            const positions = baseGeometry.attributes.position.array;
+            
+            let vIdx = 0;
+            for (let i = 0; i < trianglesData.length; i++) {
+                const col = trianglesData[i][1];
+                const r = col[2], g = col[1], b = col[0];
+                const lum = getLuminance(r, g, b);
+                
+                for (let j = 0; j < 3; j++) {
+                    // Update Z coordinate (index 2, 5, 8, etc.)
+                    positions[vIdx * 3 + 2] = lum * heightMultiplier;
+                    vIdx++;
+                }
+            }
+            
+            baseGeometry.attributes.position.needsUpdate = true;
+            baseGeometry.computeVertexNormals();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>

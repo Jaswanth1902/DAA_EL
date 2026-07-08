@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.DS_Store
+# Ignore temporary test run outputs
+test_out.png
+test_out.txt
+opt_test_out.png
+technical_output_opt.png
+technical_output_opt.txt
+artistic_output_opt.png
+artistic_output_opt.txt
