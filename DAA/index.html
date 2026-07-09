@@ -847,12 +847,12 @@
                     
                     <div class="control-block" style="margin-bottom: 0.5rem;">
                         <div class="control-label">Barycentric Morph Progress <span class="control-val" id="lblMorph">100%</span></div>
-                        <input type="range" id="sldMorph" min="0" max="100" value="100" oninput="changeParam('morph', this.value / 100)">
+                        <input type="range" id="sldMorph" min="0" max="100" value="100" oninput="changeParam('morphFactor', this.value / 100)">
                     </div>
 
                     <div class="control-block">
-                        <div class="control-label">Triangulation Opacity <span class="control-val" id="lblOpacity">100%</span></div>
-                        <input type="range" id="sldOpacity" min="0" max="100" value="100" oninput="changeParam('opacity', this.value / 100)">
+                        <div class="control-label">Triangulation Opacity <span class="control-val" id="lblOpacity">0%</span></div>
+                        <input type="range" id="sldOpacity" min="0" max="100" value="0" oninput="changeParam('opacity', this.value / 100)">
                     </div>
                 </div>
 
@@ -861,7 +861,8 @@
                     <button class="btn-action action-primary" onclick="studioExportPNG()">Render PNG High-Res</button>
                     <button class="btn-action action-outline" onclick="studioExportSVG()">Export SVG</button>
                     <button class="btn-action action-outline" onclick="studioExportJSON()">Export JSON</button>
-                    <button class="btn-action action-outline" onclick="studioResetPoints()">Reset Mesh</button>
+                    <button class="btn-action action-outline" onclick="studioExportOBJ()">Export 3D OBJ</button>
+                    <button class="btn-action action-outline" onclick="studioResetPoints()" style="grid-column: span 2;">Reset Mesh</button>
                 </div>
             </div>
 
@@ -913,7 +914,7 @@
             edit: false,
             webgl: false,
             morph: 1.0,
-            opacity: 1.0,
+            opacity: 0.0,
             preset: 'highfidelity'
         };
 
@@ -928,6 +929,37 @@
 
         const mainCanvas = document.getElementById('studioCanvas');
         const mainCtx = mainCanvas.getContext('2d');
+
+        // Web Worker setup for heavy lifting
+        let meshWorker = new Worker('worker.js');
+        meshWorker.onmessage = function(e) {
+            const data = e.data;
+            if (data.action === 'computeMeshResult') {
+                coords = data.coords;
+                indices = data.indices;
+                colMap = data.colMap;
+                cachedCoords = coords.map(p => [...p]);
+                
+                document.getElementById('statVertices').innerText = coords.length;
+                document.getElementById('statTriangles').innerText = Math.floor(indices.length / 3);
+                document.getElementById('statTime').innerText = Math.round(data.time) + ' ms (Worker)';
+                
+                const w = mainCanvas.width;
+                const h = mainCanvas.height;
+                const origSize = w * h * 3;
+                const meshSize = coords.length * 8 + (indices.length / 3) * 12;
+                const compression = Math.max(0, Math.round((1 - (meshSize / origSize)) * 100));
+                document.getElementById('statCompression').innerText = compression + '%';
+                
+                document.body.style.cursor = 'default';
+                mainCanvas.style.opacity = 1.0;
+                renderMesh();
+            } else if (data.action === 'recomputeTriangulationResult') {
+                indices = data.indices;
+                colMap = data.colMap;
+                renderMesh();
+            }
+        };
 
         // Start Up setup
         window.addEventListener('DOMContentLoaded', () => {
@@ -1134,120 +1166,34 @@
             renderMesh();
         }
 
-        // CORE PIPELINE COMPUTATION IN JAVASCRIPT
         function computeMesh() {
             if (!srcImage) return;
 
-            const t0 = performance.now();
             const w = mainCanvas.width;
             const h = mainCanvas.height;
 
-            // Step 1: Draw source image to off-screen context to read pixels
             const offscreen = document.createElement('canvas');
-            offscreen.width = w;
-            offscreen.height = h;
+            offscreen.width = w; offscreen.height = h;
             const oCtx = offscreen.getContext('2d');
             oCtx.drawImage(srcImage, 0, 0, w, h);
             const imgData = oCtx.getImageData(0, 0, w, h);
-            const data = imgData.data;
 
-            // Step 2: Sobel Edge Filtering (Fast pure JS edge extraction)
-            const edges = new Uint8ClampedArray(w * h);
-            for (let y = 1; y < h - 1; y++) {
-                for (let x = 1; x < w - 1; x++) {
-                    const idx = (y * w + x) * 4;
+            document.body.style.cursor = 'wait';
+            mainCanvas.style.opacity = 0.5; // Visual loading indicator
 
-                    // Compute gray scale values
-                    const g00 = (data[((y - 1) * w + (x - 1)) * 4] + data[((y - 1) * w + (x - 1)) * 4 + 1] + data[((y - 1) * w + (x - 1)) * 4 + 2]) / 3;
-                    const g01 = (data[((y - 1) * w + x) * 4] + data[((y - 1) * w + x) * 4 + 1] + data[((y - 1) * w + x) * 4 + 2]) / 3;
-                    const g02 = (data[((y - 1) * w + (x + 1)) * 4] + data[((y - 1) * w + (x + 1)) * 4 + 1] + data[((y - 1) * w + (x + 1)) * 4 + 2]) / 3;
-                    
-                    const g10 = (data[(y * w + (x - 1)) * 4] + data[(y * w + (x - 1)) * 4 + 1] + data[(y * w + (x - 1)) * 4 + 2]) / 3;
-                    const g12 = (data[(y * w + (x + 1)) * 4] + data[(y * w + (x + 1)) * 4 + 1] + data[(y * w + (x + 1)) * 4 + 2]) / 3;
-                    
-                    const g20 = (data[((y + 1) * w + (x - 1)) * 4] + data[((y + 1) * w + (x - 1)) * 4 + 1] + data[((y + 1) * w + (x - 1)) * 4 + 2]) / 3;
-                    const g21 = (data[((y + 1) * w + x) * 4] + data[((y + 1) * w + x) * 4 + 1] + data[((y + 1) * w + x) * 4 + 2]) / 3;
-                    const g22 = (data[((y + 1) * w + (x + 1)) * 4] + data[((y + 1) * w + (x + 1)) * 4 + 1] + data[((y + 1) * w + (x + 1)) * 4 + 2]) / 3;
-
-                    // Sobel Kernels
-                    const gx = (g02 + 2 * g12 + g22) - (g00 + 2 * g10 + g20);
-                    const gy = (g20 + 2 * g21 + g22) - (g00 + 2 * g01 + g02);
-
-                    const mag = Math.sqrt(gx * gx + gy * gy);
-                    edges[y * w + x] = mag > s.threshold ? 255 : 0;
-                }
-            }
-
-            // Step 3: Sample point grid
-            coords = [];
-            const spacing = s.spacing;
-            
-            // Sample edge points spaced out
-            for (let y = 1; y < h - 1; y += 2) {
-                for (let x = 1; x < w - 1; x += 2) {
-                    if (edges[y * w + x] === 255) {
-                        // Check local neighborhood to avoid clustering too close
-                        let tooClose = false;
-                        for (let k = 0; k < coords.length; k++) {
-                            const dx = coords[k][0] - x;
-                            const dy = coords[k][1] - y;
-                            if (dx * dx + dy * dy < spacing * spacing) {
-                                tooClose = true;
-                                break;
-                            }
-                        }
-                        if (!tooClose) {
-                            coords.push([x, y]);
-                        }
-                    }
-                }
-            }
-
-            // Sample random interior points
-            const interiorPointsCount = Math.floor(w * h * s.density);
-            for (let i = 0; i < interiorPointsCount; i++) {
-                const rx = Math.floor(Math.random() * w);
-                const ry = Math.floor(Math.random() * h);
-                coords.push([rx, ry]);
-            }
-
-            // Anchor corners
-            coords.push([0, 0]);
-            coords.push([0, h - 1]);
-            coords.push([w - 1, 0]);
-            coords.push([w - 1, h - 1]);
-
-            // Remove duplicates
-            const seen = new Set();
-            coords = coords.filter(p => {
-                const key = `${p[0]},${p[1]}`;
-                if (seen.has(key)) return false;
-                seen.add(key);
-                return true;
+            meshWorker.postMessage({
+                action: 'computeMesh',
+                pixelData: imgData.data,
+                w: w,
+                h: h,
+                s: s
             });
-
-            // Cache points for editing reset
-            cachedCoords = coords.map(p => [...p]);
-
-            recomputeTriangulation(data, w, h);
-            const t1 = performance.now();
-
-            // Sync metrics display
-            document.getElementById('statVertices').innerText = coords.length;
-            document.getElementById('statTriangles').innerText = Math.floor(indices.length / 3);
-            document.getElementById('statTime').innerText = Math.round(t1 - t0) + ' ms';
-            
-            const origSize = w * h * 3;
-            const meshSize = coords.length * 8 + (indices.length / 3) * 12;
-            const compression = Math.max(0, Math.round((1 - (meshSize / origSize)) * 100));
-            document.getElementById('statCompression').innerText = compression + '%';
         }
 
-        // Recalculates triangulation without rebuilding entire point set (Fast for dragging edit mode!)
         function recomputeTriangulation(pixelData, w, h) {
             if (coords.length < 3) return;
-
-            // Flat point buffer for Delaunator
+            
+            // Recompute fast on main thread during drag to avoid message latency
             const flatPoints = new Float64Array(coords.length * 2);
             for (let i = 0; i < coords.length; i++) {
                 flatPoints[i * 2] = coords[i][0];
@@ -1257,31 +1203,18 @@
             const d = new Delaunator(flatPoints);
             indices = d.triangles;
 
-            // Step 5: Fast Barycentric Color Averaging per triangle
+            // Fast centroid fallback for real-time drag (smooth 60fps)
             colMap = [];
             for (let t = 0; t < indices.length; t += 3) {
                 const p0 = coords[indices[t]];
                 const p1 = coords[indices[t + 1]];
                 const p2 = coords[indices[t + 2]];
 
-                // Compute bounding box
-                const minX = Math.max(0, Math.floor(Math.min(p0[0], p1[0], p2[0])));
-                const maxX = Math.min(w - 1, Math.ceil(Math.max(p0[0], p1[0], p2[0])));
-                const minY = Math.max(0, Math.floor(Math.min(p0[1], p1[1], p2[1])));
-                const maxY = Math.min(h - 1, Math.ceil(Math.max(p0[1], p1[1], p2[1])));
-
-                // Sample centroid and nearby vertices for accelerated O(1) barycentric approximation
                 const cx = Math.floor((p0[0] + p1[0] + p2[0]) / 3);
                 const cy = Math.floor((p0[1] + p1[1] + p2[1]) / 3);
-
                 const cIdx = (cy * w + cx) * 4;
-                const r = pixelData[cIdx] || 0;
-                const g = pixelData[cIdx + 1] || 0;
-                const b = pixelData[cIdx + 2] || 0;
-
-                colMap.push([r, g, b]);
+                colMap.push([pixelData[cIdx] || 0, pixelData[cIdx + 1] || 0, pixelData[cIdx + 2] || 0]);
             }
-
             renderMesh();
         }
 
@@ -1517,6 +1450,53 @@
             const blob = new Blob([JSON.stringify(jsonStructure, null, 2)], { type: 'application/json' });
             const link = document.createElement('a');
             link.download = 'delaunay_webgl_mesh.json';
+            link.href = URL.createObjectURL(blob);
+            link.click();
+        }
+
+        function studioExportOBJ() {
+            if (indices.length === 0 || !srcImage) return;
+            
+            const w = mainCanvas.width;
+            const h = mainCanvas.height;
+            
+            const offscreen = document.createElement('canvas');
+            offscreen.width = w; offscreen.height = h;
+            const oCtx = offscreen.getContext('2d');
+            oCtx.drawImage(srcImage, 0, 0, w, h);
+            const imgData = oCtx.getImageData(0, 0, w, h).data;
+            
+            let objContent = `# Delaunay Topographic 3D Mesh\n`;
+            objContent += `o DelaunayMesh\n`;
+            
+            const depthScale = 50.0; // Extrusion height multiplier
+            
+            for(let i = 0; i < coords.length; i++) {
+                const px = coords[i][0];
+                const py = coords[i][1];
+                
+                const idx = (py * w + px) * 4;
+                const r = imgData[idx] || 0;
+                const g = imgData[idx+1] || 0;
+                const b = imgData[idx+2] || 0;
+                
+                const lum = 0.299*r + 0.587*g + 0.114*b;
+                const z = (lum / 255.0) * depthScale;
+                
+                // Flip Y so the mesh stands upright natively in most 3D software
+                objContent += `v ${px} ${h - py} ${z.toFixed(4)}\n`;
+            }
+            
+            for (let t = 0; t < indices.length; t += 3) {
+                const i1 = indices[t] + 1;
+                const i2 = indices[t+1] + 1;
+                const i3 = indices[t+2] + 1;
+                objContent += `f ${i1} ${i2} ${i3}\n`;
+            }
+            
+            const blob = new Blob([objContent], { type: 'text/plain;charset=utf-8' });
+            const link = document.createElement('a');
+            link.download = 'delaunay_topographic.obj';
             link.href = URL.createObjectURL(blob);
             link.click();
         }

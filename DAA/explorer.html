@@ -1993,22 +1993,8 @@
         }
 
         function loadSharedImage() {
-            const savedImgData = localStorage.getItem('delaunay_user_image');
-            if (savedImgData) {
-                const img = new Image();
-                img.onload = () => {
-                    testImage = img;
-                    
-                    // Set canvas dimension based on image aspect ratio, width 800 for sharpness
-                    const aspect = img.width / img.height;
-                    canvas.width = 800;
-                    canvas.height = Math.round(800 / aspect);
-                    
-                    resetAnim();
-                };
-                img.src = savedImgData;
-                return true;
-            }
+            // Always return false to force the use of the default fixed artwork 
+            // instead of user uploaded images in the Algorithmic Explorer
             return false;
         }
 

@@ -649,6 +649,11 @@
                     <input type="range" id="sldSpeed" min="1" max="16" value="4" oninput="vizSpeed = this.value; document.getElementById('lblSpeed').innerText = this.value + 'x';">
                     <span id="lblSpeed">4x</span>
                 </div>
+                <div class="speed-control" style="margin-left: 15px;">
+                    <span>Opacity:</span>
+                    <input type="range" id="vizOpacitySlider" min="0" max="100" value="0" oninput="window.vizTriOpacity = this.value / 100; document.getElementById('lblVizOpacity').innerText = this.value + '%'; if(typeof redrawVizFinal === 'function') redrawVizFinal();">
+                    <span id="lblVizOpacity">0%</span>
+                </div>
             </div>
         </div>
     </section>
@@ -767,12 +772,24 @@
     // SHARED STATE
     // ═══════════════════════════════════════════════
     let demoImage = null;
+    window.vizTriOpacity = 0.0;
     let demoCoords = [];
     let demoIndices = [];
     let demoColMap = [];
     let demoEdges = null;
     let demoPixelData = null;
     let demoW = 0, demoH = 0;
+
+    function makeHighRes(canvas, w, h) {
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+        return ctx;
+    }
 
     // FPS tracking
     let fpsFrames = [];
@@ -863,85 +880,49 @@
         demoPixelData = oCtx.getImageData(0, 0, demoW, demoH).data;
 
         // Run full pipeline for inspector and benchmark
-        runFullPipeline();
-        // Reset visualizer
-        vizReset();
-        // Re-render inspector
-        renderInspectorBase();
+        runFullPipeline(() => {
+            // Reset visualizer
+            vizReset();
+            // Re-render inspector
+            renderInspectorBase();
+        });
     }
 
     // ═══════════════════════════════════════════════
     // FULL PIPELINE (Sobel + Seed + Delaunay + Color)
     // ═══════════════════════════════════════════════
-    function runFullPipeline() {
-        if (!demoPixelData) return;
-        const w = demoW, h = demoH, data = demoPixelData;
-        const spacing = 12, threshold = 45, density = 0.0018;
-
-        // Sobel edges
-        demoEdges = new Uint8ClampedArray(w * h);
-        for (let y = 1; y < h - 1; y++) {
-            for (let x = 1; x < w - 1; x++) {
-                const g = (i) => { const j = i * 4; return (data[j] + data[j+1] + data[j+2]) / 3; };
-                const g00 = g((y-1)*w+(x-1)), g01 = g((y-1)*w+x), g02 = g((y-1)*w+(x+1));
-                const g10 = g(y*w+(x-1)), g12 = g(y*w+(x+1));
-                const g20 = g((y+1)*w+(x-1)), g21 = g((y+1)*w+x), g22 = g((y+1)*w+(x+1));
-                const gx = (g02 + 2*g12 + g22) - (g00 + 2*g10 + g20);
-                const gy = (g20 + 2*g21 + g22) - (g00 + 2*g01 + g02);
-                demoEdges[y * w + x] = Math.sqrt(gx*gx + gy*gy) > threshold ? 255 : 0;
-            }
+    let meshWorker = new Worker('worker.js');
+    function runFullPipeline(callback) {
+        if (!demoPixelData) {
+            if (callback) callback();
+            return;
         }
-
-        // Seed points
-        demoCoords = [];
-        for (let y = 1; y < h - 1; y += 2) {
-            for (let x = 1; x < w - 1; x += 2) {
-                if (demoEdges[y * w + x] === 255) {
-                    let tooClose = false;
-                    for (let k = 0; k < demoCoords.length; k++) {
-                        const dx = demoCoords[k][0] - x, dy = demoCoords[k][1] - y;
-                        if (dx*dx + dy*dy < spacing*spacing) { tooClose = true; break; }
-                    }
-                    if (!tooClose) demoCoords.push([x, y]);
-                }
-            }
-        }
-        const intCount = Math.floor(w * h * density);
-        for (let i = 0; i < intCount; i++) {
-            demoCoords.push([Math.floor(Math.random() * w), Math.floor(Math.random() * h)]);
-        }
-        demoCoords.push([0,0], [0,h-1], [w-1,0], [w-1,h-1]);
-
-        // Deduplicate
-        const seen = new Set();
-        demoCoords = demoCoords.filter(p => {
-            const k = p[0] + ',' + p[1];
-            if (seen.has(k)) return false;
-            seen.add(k); return true;
+        
+        document.body.style.cursor = 'wait';
+        
+        meshWorker.postMessage({
+            action: 'computeMesh',
+            pixelData: demoPixelData,
+            w: demoW,
+            h: demoH,
+            s: { spacing: 12, threshold: 45, density: 0.0018 }
         });
-
-        // Triangulate
-        const flat = new Float64Array(demoCoords.length * 2);
-        for (let i = 0; i < demoCoords.length; i++) {
-            flat[i*2] = demoCoords[i][0];
-            flat[i*2+1] = demoCoords[i][1];
-        }
-        const d = new Delaunator(flat);
-        demoIndices = Array.from(d.triangles);
-
-        // Color map
-        demoColMap = [];
-        for (let t = 0; t < demoIndices.length; t += 3) {
-            const p0 = demoCoords[demoIndices[t]], p1 = demoCoords[demoIndices[t+1]], p2 = demoCoords[demoIndices[t+2]];
-            const cx = Math.floor((p0[0]+p1[0]+p2[0])/3);
-            const cy = Math.floor((p0[1]+p1[1]+p2[1])/3);
-            const idx = (Math.min(cy, h-1) * w + Math.min(cx, w-1)) * 4;
-            demoColMap.push([data[idx]||0, data[idx+1]||0, data[idx+2]||0]);
-        }
-
-        // Update stats
-        document.getElementById('soPoints').innerText = demoCoords.length;
-        document.getElementById('soTriangles').innerText = Math.floor(demoIndices.length / 3);
+        
+        meshWorker.onmessage = function(e) {
+            const data = e.data;
+            if (data.action === 'computeMeshResult') {
+                demoEdges = data.edges;
+                demoCoords = data.coords;
+                demoIndices = data.indices;
+                demoColMap = data.colMap;
+                
+                document.getElementById('soPoints').innerText = demoCoords.length;
+                document.getElementById('soTriangles').innerText = Math.floor(demoIndices.length / 3);
+                
+                document.body.style.cursor = 'default';
+                if (callback) callback();
+            }
+        };
     }
 
     // ═══════════════════════════════════════════════
@@ -984,7 +965,8 @@
         { id: 1, name: 'Edge Detection', desc: 'Running Sobel edge filter to identify color boundaries and structural contours in the source image.' },
         { id: 2, name: 'Seed Sampling', desc: 'Sampling boundary points along detected edges (spaced by Bpointdist) + random interior seeds (Poisson-disc style).' },
         { id: 3, name: 'Delaunay Triangulation', desc: 'Computing triangulation satisfying the empty circumcircle criterion — no point inside any circumcircle.' },
-        { id: 4, name: 'Color Averaging', desc: 'Filling each triangle with its averaged color using O(1) Summed-Area Table (Integral Image) lookups.' }
+        { id: 4, name: 'Color Averaging', desc: 'Filling each triangle with its averaged color using O(1) Summed-Area Table (Integral Image) lookups.' },
+        { id: 5, name: 'Final Blend', desc: 'Fading the fully rendered mesh to 100% opacity to display the final vector output.' }
     ];
 
     function setCaption(stageIdx, text) {
@@ -1066,6 +1048,16 @@
             });
         }
 
+        // Stage 5: Animate Triangulation Opacity to 0.0
+        const opacitySteps = 30; // Smooth fade frames
+        for (let i = opacitySteps - 1; i >= 0; i--) {
+            vizStepQueue.push({
+                type: 'animate-opacity',
+                targetOpacity: i / opacitySteps,
+                stage: 4
+            });
+        }
+
         vizStepQueue.push({ type: 'done', stage: -1 });
     }
 
@@ -1080,9 +1072,12 @@
                 return;
             }
             if (!demoPixelData) {
-                runFullPipeline();
+                runFullPipeline(() => {
+                    startVizAnimation();
+                });
+            } else {
+                startVizAnimation();
             }
-            startVizAnimation();
         } else if (vizState === 'paused') {
             vizState = 'playing';
             document.getElementById('btnPlay').disabled = true;
@@ -1093,10 +1088,12 @@
 
     function startVizAnimation() {
         vizCanvas = document.getElementById('vizCanvas');
-        vizCtx = vizCanvas.getContext('2d');
-        vizCanvas.width = demoW;
-        vizCanvas.height = demoH;
+        vizCtx = makeHighRes(vizCanvas, demoW, demoH);
         vizCtx.clearRect(0, 0, demoW, demoH);
+        
+        window.vizTriOpacity = 1.0;
+        document.getElementById('vizOpacitySlider').value = 100;
+        document.getElementById('lblVizOpacity').innerText = '100%';
 
         buildVizSteps();
         vizStepIdx = 0;
@@ -1122,9 +1119,7 @@
                 generateDefaultArtwork((img) => {
                     setDemoImage(img);
                     vizCanvas = document.getElementById('vizCanvas');
-                    vizCtx = vizCanvas.getContext('2d');
-                    vizCanvas.width = demoW;
-                    vizCanvas.height = demoH;
+                    vizCtx = makeHighRes(vizCanvas, demoW, demoH);
                     vizCtx.clearRect(0, 0, demoW, demoH);
                     buildVizSteps();
                     vizStepIdx = 0;
@@ -1134,11 +1129,21 @@
                 });
                 return;
             }
-            if (!demoPixelData) runFullPipeline();
+            if (!demoPixelData) {
+                runFullPipeline(() => {
+                    vizCanvas = document.getElementById('vizCanvas');
+                    vizCtx = makeHighRes(vizCanvas, demoW, demoH);
+                    vizCtx.clearRect(0, 0, demoW, demoH);
+                    buildVizSteps();
+                    vizStepIdx = 0;
+                    vizState = 'paused';
+                    vizStartTime = performance.now();
+                    executeVizStep();
+                });
+                return;
+            }
             vizCanvas = document.getElementById('vizCanvas');
-            vizCtx = vizCanvas.getContext('2d');
-            vizCanvas.width = demoW;
-            vizCanvas.height = demoH;
+            vizCtx = makeHighRes(vizCanvas, demoW, demoH);
             vizCtx.clearRect(0, 0, demoW, demoH);
             buildVizSteps();
             vizStepIdx = 0;
@@ -1158,8 +1163,7 @@
         vizCanvas = document.getElementById('vizCanvas');
         vizCtx = vizCanvas.getContext('2d');
         if (demoW && demoH) {
-            vizCanvas.width = demoW;
-            vizCanvas.height = demoH;
+            vizCtx = makeHighRes(vizCanvas, demoW, demoH);
             vizCtx.clearRect(0, 0, demoW, demoH);
             if (demoImage) {
                 vizCtx.globalAlpha = 0.3;
@@ -1305,13 +1309,43 @@
                     ctx.lineTo(p1[0], p1[1]);
                     ctx.lineTo(p2[0], p2[1]);
                     ctx.closePath();
+                    ctx.globalAlpha = window.vizTriOpacity !== undefined ? window.vizTriOpacity : 0.0;
                     ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
                     ctx.fill();
-                    // Thin stroke to fill sliver gaps
+                    ctx.strokeStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+                    ctx.lineWidth = 0.5;
+                    ctx.stroke();
+                    ctx.globalAlpha = 1.0;
+                }
+                break;
+
+            case 'animate-opacity':
+                window.vizTriOpacity = step.targetOpacity;
+                document.getElementById('vizOpacitySlider').value = Math.round(step.targetOpacity * 100);
+                document.getElementById('lblVizOpacity').innerText = Math.round(step.targetOpacity * 100) + '%';
+                
+                ctx.clearRect(0, 0, demoW, demoH);
+                ctx.globalAlpha = 1.0 - window.vizTriOpacity;
+                ctx.drawImage(demoImage, 0, 0, demoW, demoH);
+                ctx.globalAlpha = window.vizTriOpacity;
+                
+                for (let t = 0; t < demoIndices.length; t += 3) {
+                    const p0 = demoCoords[demoIndices[t]];
+                    const p1 = demoCoords[demoIndices[t+1]];
+                    const p2 = demoCoords[demoIndices[t+2]];
+                    const c = demoColMap[t / 3];
+                    ctx.beginPath();
+                    ctx.moveTo(p0[0], p0[1]);
+                    ctx.lineTo(p1[0], p1[1]);
+                    ctx.lineTo(p2[0], p2[1]);
+                    ctx.closePath();
+                    ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+                    ctx.fill();
                     ctx.strokeStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
                     ctx.lineWidth = 0.5;
                     ctx.stroke();
                 }
+                ctx.globalAlpha = 1.0;
                 break;
 
             case 'done':
@@ -1323,6 +1357,35 @@
         }
     }
 
+    function redrawVizFinal() {
+        if (vizState !== 'done') return;
+        const w = demoW, h = demoH;
+        vizCtx.clearRect(0, 0, w, h);
+        
+        // Draw underlying original image based on inverse opacity
+        vizCtx.globalAlpha = 1.0 - window.vizTriOpacity;
+        vizCtx.drawImage(demoImage, 0, 0, w, h);
+        vizCtx.globalAlpha = window.vizTriOpacity;
+        
+        for (let t = 0; t < demoIndices.length; t += 3) {
+            const p0 = demoCoords[demoIndices[t]];
+            const p1 = demoCoords[demoIndices[t+1]];
+            const p2 = demoCoords[demoIndices[t+2]];
+            const c = demoColMap[t / 3];
+            vizCtx.beginPath();
+            vizCtx.moveTo(p0[0], p0[1]);
+            vizCtx.lineTo(p1[0], p1[1]);
+            vizCtx.lineTo(p2[0], p2[1]);
+            vizCtx.closePath();
+            vizCtx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+            vizCtx.fill();
+            vizCtx.strokeStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+            vizCtx.lineWidth = 0.5;
+            vizCtx.stroke();
+        }
+        vizCtx.globalAlpha = 1.0;
+    }
+
     // ═══════════════════════════════════════════════
     // FEATURE 4: CIRCUMCIRCLE INSPECTOR
     // ═══════════════════════════════════════════════
@@ -1330,9 +1393,7 @@
 
     function renderInspectorBase() {
         const canvas = document.getElementById('inspectorCanvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = demoW;
-        canvas.height = demoH;
+        const ctx = makeHighRes(canvas, demoW, demoH);
 
         // Draw filled mesh
         for (let t = 0; t < demoIndices.length; t += 3) {
@@ -1486,7 +1547,12 @@
             });
             return;
         }
-        if (!demoPixelData) runFullPipeline();
+        if (!demoPixelData) {
+            runFullPipeline(() => {
+                runBenchmarkRace();
+            });
+            return;
+        }
 
         const btn = document.getElementById('btnBenchmark');
         btn.disabled = true;
@@ -1759,7 +1825,12 @@
             });
             return;
         }
-        if (!demoPixelData) runFullPipeline();
+        if (!demoPixelData) {
+            runFullPipeline(() => {
+                runMeasurements();
+            });
+            return;
+        }
 
         const btn = document.getElementById('btnMeasure');
         btn.disabled = true;
@@ -1777,8 +1848,16 @@
         const benchData = benchCtx.getImageData(0, 0, benchW, benchH).data;
 
         const benchCoords = demoCoords.map(p => [Math.round(p[0] * benchScale), Math.round(p[1] * benchScale)]);
-        const testCounts = [100, 300, 600, 1000, 1500];
         const maxTris = Math.floor(demoIndices.length / 3);
+        
+        // Dynamically calculate test counts evenly spaced up to maxTris to avoid stacking 'x' marks
+        const testCounts = [
+            Math.floor(maxTris * 0.2),
+            Math.floor(maxTris * 0.4),
+            Math.floor(maxTris * 0.6),
+            Math.floor(maxTris * 0.8),
+            maxTris
+        ].filter((v, i, a) => v > 0 && a.indexOf(v) === i); // Ensure unique positive values
 
         const naiveMeasured = [];
         const bboxMeasured = [];
@@ -1870,6 +1949,18 @@
 
         // Add scatter datasets to chart
         if (bigOChart) {
+            // Dynamically scale theoretical curves to match measured maxTris
+            const maxChartX = Math.ceil(maxTris * 1.2);
+            const W = 150, H = 150, C = 3, Aavg = 50;
+            const naiveScale = 0.00003, bboxScale = 0.0004, satBuild = W * H * C * 0.00001;
+            const triCounts = [];
+            for (let t = 100; t <= maxChartX; t += Math.max(50, Math.floor(maxChartX / 20))) triCounts.push(t);
+            if (triCounts[triCounts.length - 1] !== maxChartX) triCounts.push(maxChartX);
+
+            bigOChart.data.datasets[0].data = triCounts.map(T => ({ x: T, y: T * H * W * naiveScale }));
+            bigOChart.data.datasets[1].data = triCounts.map(T => ({ x: T, y: T * Aavg * bboxScale }));
+            bigOChart.data.datasets[2].data = triCounts.map(T => ({ x: T, y: satBuild + T * 0.0002 }));
+
             // Remove old measured datasets (indices 3, 4, 5)
             while (bigOChart.data.datasets.length > 3) {
                 bigOChart.data.datasets.pop();

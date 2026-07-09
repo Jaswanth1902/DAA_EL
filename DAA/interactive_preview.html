@@ -520,8 +520,8 @@
                 </div>
 
                 <div class="control-group">
-                    <label>Triangulation Opacity <span class="slider-val" id="blendOpacityVal">100%</span></label>
-                    <input type="range" id="blendSlider" min="0" max="100" value="100" oninput="updateParam('blendOpacity', this.value / 100)">
+                    <label>Triangulation Opacity <span class="slider-val" id="blendOpacityVal">0%</span></label>
+                    <input type="range" id="blendSlider" min="0" max="100" value="0" oninput="updateParam('blendOpacity', this.value / 100)">
                 </div>
 
                 <button class="btn btn-outline" style="width: 100%; display: flex; align-items: center; gap: 8px; justify-content: center;" onclick="animateMorph()">
@@ -570,7 +570,7 @@
             editMode: false,
             useWebGL: false,
             morphFactor: 1.0,
-            blendOpacity: 1.0,
+            blendOpacity: 0.0,
             preset: 'highfidelity',
             isAnimating: false
         };
@@ -594,6 +594,25 @@
         let webglProgram = null;
         let positionBuffer = null;
         let colorBuffer = null;
+        
+        let meshWorker = new Worker('worker.js');
+        meshWorker.onmessage = function(e) {
+            const data = e.data;
+            if (data.action === 'computeMeshResult') {
+                points = data.coords;
+                triangles = data.indices;
+                triangleColors = data.colMap;
+                initialPoints = points.map(p => [...p]);
+                
+                document.getElementById('perfVertices').innerText = points.length;
+                document.getElementById('perfTriangles').innerText = Math.floor(triangles.length / 3);
+                document.getElementById('perfTime').innerText = data.time.toFixed(1) + ' ms (Worker)';
+                
+                document.body.style.cursor = 'default';
+                canvas.style.opacity = 1.0;
+                render();
+            }
+        };
 
         function initWebGL() {
             if (!gl) {
@@ -842,10 +861,9 @@
             reader.readAsDataURL(file);
         }
 
-        // Pure JS High-Performance Triangulation Pipeline
+        // Web Worker Accelerated Triangulation Pipeline
         function processTriangulation() {
             if (!originalImage) return;
-            const startTime = performance.now();
 
             const w = canvas.width;
             const h = canvas.height;
@@ -858,190 +876,46 @@
             tempCtx.drawImage(originalImage, 0, 0, w, h);
             const imgData = tempCtx.getImageData(0, 0, w, h);
 
-            // 1. Edge Detection (Sobel)
-            const edges = getEdges(imgData, state.edgeThreshold);
+            document.body.style.cursor = 'wait';
+            canvas.style.opacity = 0.5;
 
-            // 2. Seeding points
-            points = samplePoints(edges, w, h, state.bDist, state.interiorDensity);
-            initialPoints = points.map(p => [...p]); // Cache copy
-
-            // 3. Compute Delaunay Triangulation & Average Colors
-            computeColorsAndTriangles(imgData);
-
-            const elapsed = performance.now() - startTime;
-            
-            // Sync performance metrics
-            document.getElementById('perfVertices').innerText = points.length;
-            document.getElementById('perfTriangles').innerText = triangles.length / 3;
-            document.getElementById('perfTime').innerText = elapsed.toFixed(1) + ' ms';
-
-            render();
+            meshWorker.postMessage({
+                action: 'computeMesh',
+                pixelData: imgData.data,
+                w: w,
+                h: h,
+                s: {
+                    spacing: state.bDist,
+                    threshold: state.edgeThreshold,
+                    density: state.interiorDensity
+                }
+            });
         }
 
         // Compute Delaunay triangulation indices & sample colors
         function computeColorsAndTriangles(imgData) {
-            const flatPoints = [];
-            for (const p of points) {
-                flatPoints.push(p[0], p[1]);
+            if (points.length < 3) return;
+
+            const flatPoints = new Float64Array(points.length * 2);
+            for (let i = 0; i < points.length; i++) {
+                flatPoints[i * 2] = points[i][0];
+                flatPoints[i * 2 + 1] = points[i][1];
             }
 
-            const delaunay = new Delaunator(flatPoints);
-            triangles = delaunay.triangles;
-            triangleColors = [];
+            const d = new Delaunator(flatPoints);
+            triangles = Array.from(d.triangles);
 
-            // Compute Bounding Box averaged colors
+            triangleColors = [];
             for (let i = 0; i < triangles.length; i += 3) {
                 const p0 = points[triangles[i]];
                 const p1 = points[triangles[i+1]];
                 const p2 = points[triangles[i+2]];
-
-                const color = getTriangleAverageColor(p0, p1, p2, imgData);
-                triangleColors.push(color);
-            }
-        }
-
-        // Edge detection algorithm (Sobel Kernels)
-        function getEdges(imgData, threshold) {
-            const w = imgData.width;
-            const h = imgData.height;
-            const data = imgData.data;
-            const edges = new Uint8Array(w * h);
-
-            const kx = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
-            const ky = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
-
-            for (let y = 1; y < h - 1; y++) {
-                for (let x = 1; x < w - 1; x++) {
-                    let pixelX = 0;
-                    let pixelY = 0;
-
-                    for (let cy = -1; cy <= 1; cy++) {
-                        for (let cx = -1; cx <= 1; cx++) {
-                            const idx = ((y + cy) * w + (x + cx)) * 4;
-                            // Grayscale conversion
-                            const val = 0.299 * data[idx] + 0.587 * data[idx+1] + 0.114 * data[idx+2];
-                            const kIdx = (cy + 1) * 3 + (cx + 1);
-                            
-                            pixelX += val * kx[kIdx];
-                            pixelY += val * ky[kIdx];
-                        }
-                    }
-
-                    const mag = Math.sqrt(pixelX * pixelX + pixelY * pixelY);
-                    edges[y * w + x] = mag > threshold ? 255 : 0;
-                }
-            }
-            return edges;
-        }
-
-        // Space out edge seeds and add random interior seeds + corners
-        function samplePoints(edges, w, h, bDist, interiorDensity) {
-            const sampled = [];
-
-            // Edge boundary seeding (skip grid search)
-            for (let y = 0; y < h; y += bDist) {
-                for (let x = 0; x < w; x += bDist) {
-                    let found = false;
-                    for (let dy = 0; dy < bDist && (y + dy) < h; dy++) {
-                        for (let dx = 0; dx < bDist && (x + dx) < w; dx++) {
-                            const idx = (y + dy) * w + (x + dx);
-                            if (edges[idx] > 0) {
-                                sampled.push([x + dx, y + dy]);
-                                found = true;
-                                break;
-                            }
-                        }
-                        if (found) break;
-                    }
-                }
-            }
-
-            // Interior random seeding
-            const numInterior = Math.floor(w * h * interiorDensity);
-            for (let i = 0; i < numInterior; i++) {
-                sampled.push([
-                    Math.floor(Math.random() * w),
-                    Math.floor(Math.random() * h)
-                ]);
-            }
-
-            // Lock corners to cover full canvas boundary
-            sampled.push([0, 0]);
-            sampled.push([0, h - 1]);
-            sampled.push([w - 1, 0]);
-            sampled.push([w - 1, h - 1]);
-
-            // Deduplicate
-            const seen = new Set();
-            const unique = [];
-            for (const p of sampled) {
-                const key = `${p[0]},${p[1]}`;
-                if (!seen.has(key)) {
-                    seen.add(key);
-                    unique.push(p);
-                }
-            }
-            return unique;
-        }
-
-        // Fast Barycentric coordinates check with bounding box pixel accumulator
-        function getTriangleAverageColor(p0, p1, p2, imgData) {
-            const w = imgData.width;
-            const h = imgData.height;
-            const data = imgData.data;
-
-            const xMin = Math.max(0, Math.floor(Math.min(p0[0], p1[0], p2[0])));
-            const yMin = Math.max(0, Math.floor(Math.min(p0[1], p1[1], p2[1])));
-            const xMax = Math.min(w - 1, Math.ceil(Math.max(p0[0], p1[0], p2[0])));
-            const yMax = Math.min(h - 1, Math.ceil(Math.max(p0[1], p1[1], p2[1])));
-
-            let sumR = 0, sumG = 0, sumB = 0, count = 0;
-
-            // Reduce steps for large boxes to maintain seamless interactive speeds
-            const stepX = xMax - xMin > 35 ? 2 : 1;
-            const stepY = yMax - yMin > 35 ? 2 : 1;
-
-            for (let y = yMin; y <= yMax; y += stepY) {
-                for (let x = xMin; x <= xMax; x += stepX) {
-                    if (isPointInTriangle(x, y, p0, p1, p2)) {
-                        const idx = (y * w + x) * 4;
-                        sumR += data[idx];
-                        sumG += data[idx+1];
-                        sumB += data[idx+2];
-                        count++;
-                    }
-                }
-            }
-
-            if (count === 0) {
-                // Centroid fallback
-                const cx = Math.max(0, Math.min(w - 1, Math.floor((p0[0] + p1[0] + p2[0]) / 3)));
-                const cy = Math.max(0, Math.min(h - 1, Math.floor((p0[1] + p1[1] + p2[1]) / 3)));
-                const idx = (cy * w + cx) * 4;
-                return [data[idx], data[idx+1], data[idx+2]];
-            }
-
-            return [
-                Math.round(sumR / count),
-                Math.round(sumG / count),
-                Math.round(sumB / count)
-            ];
-        }
-
-        // Math triangle containment check
-        function isPointInTriangle(px, py, p0, p1, p2) {
-            const dX = px - p2[0];
-            const dY = py - p2[1];
-            const dX21 = p2[0] - p1[0];
-            const dY12 = p1[1] - p2[1];
-            const D = dY12 * (p0[0] - p2[0]) + dX21 * (p0[1] - p2[1]);
-            if (D === 0) return false;
-            const s = dY12 * dX + dX21 * dY;
-            const t = (p2[1] - p0[1]) * dX + (p0[0] - p2[0]) * dY;
-            if (D > 0) {
-                return (s >= 0) && (t >= 0) && (s + t <= D);
-            } else {
-                return (s <= 0) && (t <= 0) && (s + t >= D);
+                
+                const cx = Math.floor((p0[0] + p1[0] + p2[0]) / 3);
+                const cy = Math.floor((p0[1] + p1[1] + p2[1]) / 3);
+                const idx = (cy * canvas.width + cx) * 4;
+                
+                triangleColors.push([imgData.data[idx] || 0, imgData.data[idx+1] || 0, imgData.data[idx+2] || 0]);
             }
         }
 
